@@ -32,7 +32,7 @@ const TABLES = {
 };
 const PUBLIC_ACTIONS = ['health','login','bootstrapStatus'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
-const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions'];
+const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions','listManagers','saveManager'];
 
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
@@ -112,6 +112,8 @@ function dispatch_(action, req, user) {
     case 'createTicket': return createTicket_(req, user);
     case 'updateTicket': requireAdmin_(user); return updateRow_('SupportTickets', req.data, user, 'ticket_id');
     case 'listInstitutions': requireRole_(user, ['owner','super_admin']); return listRows_('Institutions', user);
+    case 'listManagers': requireRole_(user, ['owner','super_admin']); return {ok:true,data:rows_('Users').filter(r=>r.role!=='student'&&r.role!=='owner').map(safeUser_)};
+    case 'saveManager': return saveManager_(req,user);
     case 'saveInstitution': requireRole_(user, ['owner','super_admin']); return saveRow_('Institutions', Object.assign({},req.data||{},{institution_id:(req.data&&req.data.institution_id)||Utilities.getUuid()}), user, 'institution_id');
     case 'auditLog': requireAdmin_(user); return listRows_('AuditLog', user);
     case 'saveSetting': requireRole_(user, ['owner','super_admin']); return saveSetting_(req, user);
@@ -209,6 +211,21 @@ function saveRow_(table,data,user,idKey) {
   return {ok:true,id:id};
 }
 function updateRow_(table,data,user,idKey) { return saveRow_(table,data,user,idKey); }
+function saveManager_(req,user) {
+  requireRole_(user,['owner','super_admin']);
+  const d=Object.assign({},req.data||{});
+  if(!d.full_name||!d.email||!d.institution_id||!d.initial_password) throw new Error('MANAGER_FIELDS_REQUIRED');
+  if(!['admin','staff','super_admin'].includes(d.role)) throw new Error('INVALID_MANAGER_ROLE');
+  if(d.role==='super_admin'&&user.role!=='owner') throw new Error('FORBIDDEN');
+  const institution=findById_('Institutions','institution_id',d.institution_id);
+  if(!institution) throw new Error('INSTITUTION_NOT_FOUND');
+  const email=String(d.email).trim().toLowerCase();
+  if(rows_('Users').some(x=>String(x.email||'').toLowerCase()===email)) throw new Error('EMAIL_EXISTS');
+  if(String(d.initial_password).length<12) throw new Error('MANAGER_PASSWORD_TOO_SHORT');
+  const salt=Utilities.getUuid();
+  const record={user_id:Utilities.getUuid(),institution_id:d.institution_id,full_name:String(d.full_name).trim(),email,phone:d.phone||'',password_hash:hash_(String(d.initial_password),salt),password_salt:salt,role:d.role,status:'active',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  return saveRow_('Users',record,user,'user_id');
+}
 function saveStudent_(req,user) {
   requireAdmin_(user);
   const d = Object.assign({},req.data || {});
