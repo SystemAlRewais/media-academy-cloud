@@ -38,9 +38,21 @@ function doGet(e) {
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
+    const requestedCohort = String(p.cohort || "").trim();
+    if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
+      if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
+      else {
+        if (!COHORTS.includes(requestedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
+        const field = cohortField_(section);
+        if (field) rows = rows.filter(r => String(r[field] || "") === requestedCohort);
+      }
+    }
     if (user.role === "student") rows = rows.filter(r => {
       if (section === "results" || section === "attendance" || section === "complaints") return String(r.student_id) === String(user.id);
-      return (!r.cohort || !user.cohort || String(r.cohort) === String(user.cohort)) && (!r.department || !user.department || String(r.department) === String(user.department)) && String(r.status || "active") === "active";
+      const cohortKey = cohortField_(section) || "cohort";
+      const rowCohort = r[cohortKey];
+      if (!user.cohort) return !rowCohort;
+      return (!rowCohort || String(rowCohort) === String(user.cohort)) && (!r.department || !user.department || String(r.department) === String(user.department)) && String(r.status || "active") === "active";
     });
     if (section === "settings" && !isOwner_(user)) rows = rows.filter(r => !/^admin_/i.test(String(r.key)));
     return out({success:true,items:rows});
@@ -59,13 +71,16 @@ function doPost(e) {
     if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const action = String(data.action || "");
     const section = String(data.section || path.split("/").pop() || "");
+    const selectedCohort = String(data.cohort || "").trim();
+    if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !COHORTS.includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
+    if (section !== "settings" && ["create","update","delete","approve","reject"].includes(action) && (!selectedCohort || selectedCohort === "__all__")) return out({success:false,message:"اختر فرقة محددة قبل تنفيذ الإضافة أو التعديل أو الحذف."});
     if (action === "upload") return upload_(data,user);
     if (!SECTION_SHEET[section] || ["settings"].includes(section) && !isOwner_(user)) return out({success:false,message:"قسم غير صالح أو لا تملك صلاحية إدارته."});
     let result;
-    if (action === "create") result = createRecord_(section,data.record || {},user);
-    else if (action === "update") result = updateRecord_(section,data.id,data.record || {},user);
-    else if (action === "delete") result = deleteRecord_(section,data.id,user);
-    else if (action === "approve" || action === "reject") result = setStudentStatus_(data.id,action === "approve" ? "active" : "rejected",user);
+    if (action === "create") result = createRecord_(section,data.record || {},user,selectedCohort);
+    else if (action === "update") result = updateRecord_(section,data.id,data.record || {},user,selectedCohort);
+    else if (action === "delete") result = deleteRecord_(section,data.id,user,selectedCohort);
+    else if (action === "approve" || action === "reject") result = setStudentStatus_(data.id,action === "approve" ? "active" : "rejected",user,selectedCohort);
     else return out({success:false,message:"نوع العملية غير مدعوم."});
     return out({success:true,...result});
   } catch(err) { return out({success:false,message:String(err)}); }
@@ -129,6 +144,9 @@ function createRecord_(section,record,user,selectedCohort) {
   }
   const id = Utilities.getUuid();
   const obj = {...record,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  const cohortKey = cohortField_(section);
+  if (cohortKey && selectedCohort === "__unassigned__") throw new Error("لا يمكن إنشاء سجل جديد داخل قائمة الطلاب غير المسندين.");
+  if (cohortKey && selectedCohort) obj[cohortKey] = selectedCohort;
   if (section === "students") {
     if (!obj.student_code || !obj.full_name) throw new Error("كود الطالب والاسم مطلوبان.");
     if (obj.password) { const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password; }
@@ -149,7 +167,11 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
   const idx=headers.indexOf("id"), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
-  assertRecordCohort_(section, values, headers, row, selectedCohort);\n  const obj={...record,updated_at:new Date().toISOString()};\n  const cohortKey=cohortField_(section);\n  if(cohortKey && selectedCohort && selectedCohort!=="__unassigned__") obj[cohortKey]=selectedCohort;
+  assertRecordCohort_(section, values, headers, row, selectedCohort);
+  const obj={...record,updated_at:new Date().toISOString()};
+  const cohortKey=cohortField_(section);
+  if(cohortKey && selectedCohort && selectedCohort!=="__unassigned__") obj[cohortKey]=selectedCohort;
+  if(section==="students" && selectedCohort==="__unassigned__" && !COHORTS.includes(String(record.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب قبل حفظه.");
   if(section==="students" && selectedCohort==="__unassigned__" && !COHORTS.includes(String(record.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب قبل حفظه.");
   if(obj.password){const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;}
   headers.forEach((h,c)=>{if(Object.prototype.hasOwnProperty.call(obj,h)) sh.getRange(row+1,c+1).setValue(obj[h]);});
@@ -166,6 +188,7 @@ function deleteRecord_(section,id,user,selectedCohort) {
   const sh=db_().getSheetByName(SECTION_SHEET[section]),v=sh.getDataRange().getValues(),headers=v[0].map(String),idx=headers.indexOf("id");
   const row=v.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
+  assertRecordCohort_(section,v,headers,row,selectedCohort);
   sh.deleteRow(row+1);audit_(user,"delete",section,id,{});
   return {message:"تم الحذف."};
 }
@@ -173,6 +196,9 @@ function setStudentStatus_(id,status,user,selectedCohort) {
   const sh=db_().getSheetByName("Students"),v=sh.getDataRange().getValues(),h=v[0].map(String),idc=h.indexOf("id"),sc=h.indexOf("status"),uc=h.indexOf("updated_at");
   const row=v.findIndex((r,i)=>i>0 && String(r[idc])===String(id));
   if(row<1) throw new Error("الطالب غير موجود.");
+  assertRecordCohort_("students",v,h,row,selectedCohort);
+  const cohortCol=h.indexOf("cohort");
+  if(status==="active" && cohortCol>=0 && !String(v[row][cohortCol]||"").trim()) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
   sh.getRange(row+1,sc+1).setValue(status);if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());
   audit_(user,status,"students",id,{});return {message:status==="active"?"تم اعتماد الطالب.":"تم رفض الطلب."};
 }
@@ -210,7 +236,8 @@ function ensureDatabaseSafe_(){
   Object.keys(TABLES).forEach(name=>{
     let sh=ss.getSheetByName(name);
     if(!sh) sh=ss.insertSheet(name);
-    if(sh.getLastRow()===0) sh.getRange(1,1,1,TABLES[name].length).setValues([TABLES[name]]);\n    else ensureHeadersSafe_(sh,TABLES[name]);
+    if(sh.getLastRow()===0) sh.getRange(1,1,1,TABLES[name].length).setValues([TABLES[name]]);
+    else ensureHeadersSafe_(sh,TABLES[name]);
   });
   const props=PropertiesService.getScriptProperties();
   const username=props.getProperty("ADMIN_USERNAME"), password=props.getProperty("ADMIN_PASSWORD");
@@ -243,7 +270,8 @@ function assertRecordCohort_(section, values, headers, rowIndex, selectedCohort)
   if (selectedCohort === "__unassigned__") { if (actual) throw new Error("هذا الطالب لم يعد ضمن قائمة غير المسندين."); return; }
   if (actual !== selectedCohort) throw new Error("لا يمكن الوصول إلى سجل خارج الفرقة المحددة.");
 }
-\nfunction readRows_(name) {
+
+function readRows_(name) {
   const sh=db_().getSheetByName(name);if(!sh || sh.getLastRow()<2)return [];
   const v=sh.getDataRange().getValues(),h=v[0].map(String);
   return v.slice(1).filter(r=>r.some(x=>x!=="")).map(r=>{const o={};h.forEach((k,i)=>o[k]=r[i] instanceof Date?r[i].toISOString():r[i]);return o;});
