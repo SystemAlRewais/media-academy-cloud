@@ -11,11 +11,7 @@ import { APP_CONFIG, COHORTS } from './config.js';
 import { api } from './services/api.js';
 import AdminApp from './admin/AdminApp.jsx';
 
-const initialMessages = [
-  { id: 1, name: 'مريم أحمد', cohort: 'الفرقة الثانية', time: 'منذ دقيقتين', text: 'يا جماعة حد معاه ملخص محاضرة التسويق؟', replies: 8, likes: 12, tag: 'مساعدة دراسية', color: 'lavender' },
-  { id: 2, name: 'عمر خالد', cohort: 'الفرقة الرابعة', time: 'منذ 12 دقيقة', text: 'تم رفع جدول امتحانات الميدتيرم، بالتوفيق للجميع ❤️', replies: 14, likes: 27, tag: 'إعلان طلابي', color: 'mint' },
-  { id: 3, name: 'سارة محمود', cohort: 'الفرقة الأولى', time: 'منذ 25 دقيقة', text: 'مين مهتم نعمل جروب مذاكرة لمادة مدخل الإعلام؟', replies: 5, likes: 9, tag: 'مناقشة', color: 'gold' }
-];
+const initialMessages = [];
 
 const navItems = [
   ['overview','الرئيسية',LayoutDashboard], ['profile','ملفي الجامعي',UserCircle],
@@ -31,7 +27,6 @@ function IconButton({ children, onClick, title }) {
 function App({ currentUser, onLogout }) {
   const [page, setPage] = useState('overview');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [role, setRole] = useState('student');
   const [cohortFilter, setCohortFilter] = useState('كل الفرق');
   const [posts, setPosts] = useState(initialMessages);
   const [draft, setDraft] = useState('');
@@ -47,7 +42,7 @@ function App({ currentUser, onLogout }) {
   const addPost = () => {
     if (!draft.trim()) return;
     setPosts([{ id: Date.now(), name: 'أحمد سمير', cohort: 'الفرقة الثالثة', time: 'الآن', text: draft.trim(), replies: 0, likes: 0, tag: 'مناقشة', color: 'blue' }, ...posts]);
-    setDraft(''); setShowNewPost(false); notify('تم نشر مشاركتك في المنتدى التجريبي');
+    setDraft(''); setShowNewPost(false); notify('تمت إضافة المشاركة إلى العرض الحالي فقط');
   };
 
   const pageTitle = navItems.find(n => n[0] === page)?.[1] || 'الرئيسية';
@@ -74,7 +69,7 @@ function App({ currentUser, onLogout }) {
     </aside>
     {menuOpen && <div className="mobile-scrim" onClick={() => setMenuOpen(false)}/>}
     <main className="main-area">
-      <header className="topbar"><div className="top-left"><IconButton onClick={() => setMenuOpen(true)} title="القائمة"><Menu/></IconButton><div className="breadcrumb">بوابة الطالب <ChevronLeft size={14}/><b>{pageTitle}</b></div></div><div className="top-actions">{onLogout && <IconButton onClick={() => onLogout()} title="تسجيل الخروج"><LogOut/></IconButton>}<div className="online-pill"><span className="live-dot"/> وضع العرض التجريبي</div><IconButton onClick={() => notify('لا توجد إشعارات جديدة')} title="الإشعارات"><Bell/><i/></IconButton><div className="top-avatar">{(currentUser?.full_name || 'أ').slice(0,1)}</div></div></header>
+      <header className="topbar"><div className="top-left"><IconButton onClick={() => setMenuOpen(true)} title="القائمة"><Menu/></IconButton><div className="breadcrumb">بوابة الطالب <ChevronLeft size={14}/><b>{pageTitle}</b></div></div><div className="top-actions">{onLogout && <IconButton onClick={() => onLogout()} title="تسجيل الخروج"><LogOut/></IconButton>}<div className="online-pill"><span className="live-dot"/> متصل بالمنصة</div><IconButton onClick={() => notify('لا توجد إشعارات جديدة')} title="الإشعارات"><Bell/><i/></IconButton><div className="top-avatar">{(currentUser?.full_name || 'أ').slice(0,1)}</div></div></header>
       <div className="page-wrap"><div className="page-heading"><div><div className="eyebrow">السبت، ٧ نوفمبر ٢٠٢٦ <span>•</span> الفصل الدراسي الأول</div><h1>{page === 'overview' ? `أهلاً بيك، ${currentUser?.full_name || 'أحمد'} 👋` : pageTitle}</h1><p>{page === 'overview' ? 'كل تفاصيل رحلتك الجامعية في مكان واحد.' : 'تابع تفاصيلك وخدماتك الجامعية من مكان واحد.'}</p></div><div className="heading-actions"><button className="btn-outline" onClick={() => notify('سيتم تفعيل المزامنة بعد ربط النظام')}><Activity size={16}/> حالة النظام</button></div></div>{renderPage()}</div>
     </main>
     {toast && <div className="toast"><CheckCircle2 size={18}/>{toast}</div>}
@@ -94,11 +89,13 @@ function Stat({icon:Icon,label,value,note,tone}) { return <div className="stat-c
 function Quick({icon:Icon,label,onClick}) { return <button className="quick-item" onClick={onClick}><span><Icon size={20}/></span><b>{label}</b><ChevronLeft size={15}/></button>; }
 
 function Profile({notify,currentUser}) {
-  const [tab,setTab] = useState('personal');
-  return <div className="profile-layout"><div className="profile-main"><div className="profile-hero"><div className="profile-cover"><div className="cover-pattern"/></div><div className="profile-identity"><div className="profile-avatar">أ<button title="تغيير الصورة" onClick={() => notify('رفع الصورة يتاح بعد ربط التخزين')}><Camera size={14}/></button></div><div className="identity-copy"><div className="identity-name"><h2>{currentUser?.full_name || 'أحمد سمير محمد'}</h2><span className="verified"><ShieldCheck size={13}/> طالب مقيد</span></div><p>الفرقة الثالثة <i>•</i> قسم الإعلام الرقمي <i>•</i> أكاديمية الإعلام</p><div className="identity-tags"><span><Hash size={13}/> {currentUser?.student_code || '20241038'}</span><span><MapPin size={13}/> الحرم الرئيسي</span></div></div><button className="btn-outline edit-btn" onClick={() => notify('سيتم فتح تعديل البيانات بعد ربط قاعدة البيانات')}>تعديل الملف <Settings size={15}/></button></div><div className="profile-tabs">{[['personal','البيانات الشخصية'],['academic','البيانات الأكاديمية'],['contact','التواصل']].map(([id,label])=><button className={tab===id?'selected':''} onClick={()=>setTab(id)} key={id}>{label}</button>)}</div></div>
-    <div className="panel profile-details"><div className="panel-head"><div><h3>{tab==='personal'?'المعلومات الشخصية':tab==='academic'?'المعلومات الأكاديمية':'بيانات التواصل'}</h3><p>بيانات ملفك الجامعي المسجلة لدى الأكاديمية</p></div><span className="private-label"><Shield size={13}/> بيانات خاصة</span></div><div className="details-grid">{(tab==='personal'?[['الاسم بالكامل','أحمد سمير محمد'],['الرقم القومي','••••••••••••••'],['تاريخ الميلاد','١٥ مايو ٢٠٠٥'],['النوع','ذكر'],['الجنسية','مصري'],['العنوان','القاهرة، مصر']]:tab==='academic'?[['كود الطالب',currentUser?.student_code || '20241038'],['الفرقة الدراسية',currentUser?.cohort_id || 'الفرقة الثالثة'],['القسم',currentUser?.department || 'الإعلام الرقمي'],['العام الدراسي','2026 / 2027'],['حالة القيد','منتظم'],['تاريخ الالتحاق','سبتمبر 2024']]:[['البريد الإلكتروني','ahmed.student@example.com'],['رقم الهاتف','0100 000 0000'],['جهة اتصال للطوارئ','متاح لدى الإدارة'],['العنوان','القاهرة، مصر']]).map(([k,v])=><div className="detail-field" key={k}><small>{k}</small><b>{v}</b></div>)}</div></div>
-    <div className="panel"><div className="panel-head"><div><h3>ملخص المسيرة الأكاديمية</h3><p>مؤشرات عامة عن وضعك الدراسي</p></div></div><div className="academic-strip"><div><BookOpen/><b>6</b><small>مواد مسجلة</small></div><div><Award/><b>جيد جداً</b><small>التقدير التراكمي</small></div><div><CalendarDays/><b>92%</b><small>نسبة الحضور</small></div><div><ShieldCheck/><b>سليم</b><small>الموقف الانضباطي</small></div></div></div>
-  </div><aside className="profile-side"><div className="panel status-panel"><div className="status-orb"><ShieldCheck size={27}/></div><h3>موقفك الجامعي</h3><span className="status-good">منتظم – لا توجد مخالفات مسجلة</span><p>ملفك الجامعي لا يحتوي على جزاءات أو إجراءات انضباطية في البيانات التجريبية.</p><button className="text-link" onClick={()=>notify('يتم عرض السجل الكامل في قسم السجل الجامعي')}>عرض السجل الكامل <ChevronLeft size={14}/></button></div><div className="panel"><div className="panel-head"><div><h3>الملف والمستندات</h3><p>مستنداتك الجامعية</p></div></div>{['بطاقة الطالب','إثبات القيد','إيصال المصروفات'].map((x,i)=><div className="document-row" key={x}><div className="doc-icon"><FileText size={17}/></div><div><b>{x}</b><small>{i===0?'بطاقة رقمية': 'متاح لدى شؤون الطلاب'}</small></div><ChevronLeft size={15}/></div>)}</div></aside></div>;
+  const [tab,setTab]=useState('personal');
+  const fields=tab==='personal'?
+    [['الاسم بالكامل',currentUser?.full_name],['كود الطالب',currentUser?.student_code],['حالة الحساب',currentUser?.status]]:
+    tab==='academic'?
+    [['الفرقة الدراسية',currentUser?.cohort_id],['القسم',currentUser?.department],['الدور',currentUser?.role]]:
+    [['البريد الإلكتروني',currentUser?.email],['رقم الهاتف',currentUser?.phone]];
+  return <div className="profile-layout"><div className="profile-main"><div className="profile-hero"><div className="profile-cover"><div className="cover-pattern"/></div><div className="profile-identity"><div className="profile-avatar">{(currentUser?.full_name||'ط').slice(0,1)}</div><div className="identity-copy"><div className="identity-name"><h2>{currentUser?.full_name||'الطالب'}</h2><span className="verified"><ShieldCheck size={13}/> حساب طالب</span></div><p>الملف الجامعي المسجل في الأكاديمية</p><div className="identity-tags"><span><Hash size={13}/> {currentUser?.student_code||'—'}</span></div></div></div><div className="profile-tabs">{[['personal','البيانات الشخصية'],['academic','البيانات الأكاديمية'],['contact','التواصل']].map(([id,label])=><button className={tab===id?'selected':''} onClick={()=>setTab(id)} key={id}>{label}</button>)}</div></div><div className="panel profile-details"><div className="panel-head"><div><h3>بيانات الحساب</h3><p>المعلومات المسجلة فعلياً في قاعدة الأكاديمية</p></div><span className="private-label"><Shield size={13}/> بيانات خاصة</span></div><div className="details-grid">{fields.map(([k,v])=><div className="detail-field" key={k}><small>{k}</small><b>{v||'غير مسجل'}</b></div>)}</div></div></div><aside className="profile-side"><div className="panel status-panel"><div className="status-orb"><ShieldCheck size={27}/></div><h3>حالة الحساب</h3><span className="status-good">{currentUser?.status==='active'?'نشط':'راجع الإدارة'}</span><p>تعرض هذه الصفحة بيانات الحساب المتاحة فقط، دون بيانات شخصية غير مسجلة.</p></div></aside></div>;
 }
 
 function Forum({posts,cohortFilter,setCohortFilter,activeForum,setActiveForum,search,setSearch,liked,setLiked,draft,setDraft,addPost,showNewPost,setShowNewPost}) {
