@@ -121,6 +121,7 @@ async function loadSection(section){
  }catch(err){$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل القسم</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>'}
 }
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toLocalDateTime(value){const d=new Date(value);if(Number.isNaN(d.getTime()))return value||"";const pad=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());}
 function fieldDefs(section){
  const common={status:{label:"الحالة",type:"select",options:["active","inactive","pending","published","draft"]},cohort:{label:"الفرقة",type:"text"},department:{label:"القسم",type:"text"}};
  const defs={
@@ -209,7 +210,7 @@ function renderSection(section,data){
   if(createButton&&canCreate) createButton.addEventListener("click",()=>{form.reset();form.dataset.id="";$("editorTitle").textContent="إضافة سجل جديد";editor.classList.remove("hidden");});
   form.addEventListener("submit",saveRecord);
   form.addEventListener("click",e=>{if(e.target.closest("[data-cancel]"))editor.classList.add("hidden")});
-  $("workspaceView").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const row=rows.find(x=>String(x[section==="attendance_sessions"?"session_id":"id"])===b.dataset.edit);if(!row)return;form.reset();form.dataset.id=row.id;defs.forEach(f=>{const el=form.elements[f.name];if(el&&f.name!=="password")el.value=row[f.name]??""});$("editorTitle").textContent="تعديل البيانات";editor.classList.remove("hidden")}));
+  $("workspaceView").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const row=rows.find(x=>String(x[section==="attendance_sessions"?"session_id":"id"])===b.dataset.edit);if(!row)return;form.reset();form.dataset.id=row.id;defs.forEach(f=>{const el=form.elements[f.name];if(el&&f.name!=="password")el.value=f.type==="datetime-local"?toLocalDateTime(row[f.name]):(row[f.name]??"")});$("editorTitle").textContent="تعديل البيانات";editor.classList.remove("hidden")}));
   $("workspaceView").querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",async()=>{if(!confirm("هل تريد حذف هذا السجل نهائياً؟"))return;await mutateRecord(section,"delete",b.dataset.delete,{});loadSection(section)}));
   $("workspaceView").querySelectorAll("[data-approve],[data-reject]").forEach(b=>b.addEventListener("click",async()=>{const action=b.dataset.approve?"approve":"reject";await api("/api/admin/"+section,{method:"POST",body:{action,section,id:b.dataset.approve||b.dataset.reject,cohort:selectedCohort}});showToast(action==="approve"?"تم اعتماد الطالب":"تم رفض الطلب");loadSection(section)}));
  }
@@ -221,6 +222,7 @@ async function mutateRecord(section,action,id,record){
 async function saveRecord(e){
  e.preventDefault();const form=e.currentTarget,section=form.dataset.section,id=form.dataset.id||"",record={};
  fieldDefs(section).forEach(f=>{const el=form.elements[f.name];if(el&&el.value!==""&&!(f.name==="password"&&!el.value))record[f.name]=el.value});
+ if(section==="attendance_sessions"){if(record.opens_at)record.opens_at=new Date(record.opens_at).toISOString();if(record.closes_at)record.closes_at=new Date(record.closes_at).toISOString();}
  if(["students","courses","materials","lectures","exams","results","attendance","attendance_sessions","complaints"].includes(section)&&selectedCohort!=="__unassigned__")record.cohort=selectedCohort;
  if(section==="announcements")record.target_cohort=selectedCohort;
  const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
