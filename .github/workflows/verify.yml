@@ -12,14 +12,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Validate inline JavaScript
+      - name: Validate JavaScript files
+        run: |
+          node --check assets/js/config.js
+          node --check assets/js/app.js
+      - name: Validate site assets
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
-          html=Path('index.html').read_text()
-          scripts=re.findall(r'<script>(.*?)</script>',html,re.S)
-          assert scripts, 'No script block found'
-          Path('/tmp/site.js').write_text('\\n'.join(scripts))
+          html = Path('index.html').read_text(encoding='utf-8')
+          required = [
+              'assets/css/style.css',
+              'assets/js/config.js',
+              'assets/js/app.js',
+          ]
+          missing = [item for item in required if item not in html or not Path(item).is_file()]
+          if missing:
+              raise SystemExit('Missing site assets: ' + ', '.join(missing))
+          print('All referenced site assets exist.')
           PY
-          node --check /tmp/site.js
