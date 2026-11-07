@@ -6,7 +6,7 @@ let role = "student", token = null, currentUser = null, activeSection = "home";
 const COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 let selectedCohort=sessionStorage.getItem("ma_admin_cohort")||"__all__";
 const studentNav = [
- ["home","الرئيسية","⌂"],["profile","ملفي الشخصي","◉"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات","▶"],["schedule","جدول المحاضرات","▦"],["exams","الامتحانات والدرجات","✧"],["attendance","الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"]
+ ["home","الرئيسية","⌂"],["profile","ملفي الشخصي","◉"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات","▶"],["schedule","جدول المحاضرات","▦"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"]
 ];
 const adminNav = [
  ["home","لوحة التحكم","⌂"],["students","إدارة الطلاب","♙"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات والجداول","▶"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","سجل الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"],["settings","إعدادات النظام والحضور","⚙"]
@@ -138,7 +138,7 @@ function fieldDefs(section){
  return (defs[section]||[]).map(x=>({name:x[0],label:x[1],type:x[2]||"text",options:x[3]||[]}));
 }
 function renderSection(section,data){
- const title=({home:"نظرة عامة",profile:"ملفي الشخصي",students:"إدارة الطلاب",courses:"المواد الدراسية",materials:"الكتب والملفات",lectures:"المحاضرات والجداول",schedule:"الجدول الدراسي",exams:"الامتحانات والنتائج",attendance:"الحضور",announcements:"الإعلانات",complaints:"الشكاوى والمقترحات",settings:"إعدادات النظام"})[section]||"الأكاديمية";
+ const title=({home:"نظرة عامة",profile:"ملفي الشخصي",students:"إدارة الطلاب",courses:"المواد الدراسية",materials:"الكتب والملفات",lectures:"المحاضرات والجداول",schedule:"الجدول الدراسي",exams:"الامتحانات",results:"النتائج",attendance:"الحضور",announcements:"الإعلانات",complaints:"الشكاوى والمقترحات",settings:"إعدادات النظام"})[section]||"الأكاديمية";
  if(section==="home"){
   const entries=Object.entries(data.stats||{});
   $("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="dashboard-stats">'+(entries.length?entries.map(([k,v])=>'<div class="dashboard-stat"><small>'+escapeHtml(k)+'</small><strong>'+escapeHtml(v)+'</strong></div>').join(""):'<div class="empty-state">لا توجد إحصائيات متاحة.</div>')+'</div><p class="section-note">'+escapeHtml(data.message||"")+'</p>';return;
