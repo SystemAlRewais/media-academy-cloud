@@ -1,48 +1,13 @@
-# Media Academy Cloud — Google Apps Script backend
+# Google Apps Script setup
 
-This backend uses a **private Google Sheet only as its storage layer**. Students never receive the spreadsheet URL or access to the sheet. The owner/admin creates student accounts from the admin portal; there is no public student registration.
+هذا السكربت يجب إنشاؤه من داخل Google Sheet نفسه:
+1. افتح Google Sheet.
+2. Extensions → Apps Script.
+3. الصق `Code.gs` كاملًا.
+4. Save.
+5. Deploy → New deployment → Web app.
+6. Execute as: Me.
+7. Who has access: Anyone.
+8. Deploy ثم انسخ رابط Web app.
 
-## Website portals
-
-- Student portal: `https://systemalrewais.github.io/media-academy-cloud/`
-- Private admin login route: `https://systemalrewais.github.io/media-academy-cloud/?panel=owner`
-
-Both portals use the same server-side account system. The route is not a substitute for authentication; only active accounts with an admin role can enter the admin console.
-
-## One-time setup
-
-1. Create a **new blank Google Spreadsheet** and keep its sharing set to **Restricted**. Do not share it with students.
-2. Open **Extensions → Apps Script** from that spreadsheet.
-3. Replace the contents of `Code.gs` with the complete code in this repository's `backend/Code.gs`.
-4. In the Apps Script editor, choose `initializeCurrentSpreadsheet` and click **Run** once. Approve the requested Google permissions. It automatically saves this spreadsheet's ID and creates all database tabs.
-5. Open **Project Settings → Script Properties** and add:
-   - `BOOTSTRAP_EMAIL`: the private owner email address.
-   - `BOOTSTRAP_PASSWORD`: a new, unique password of at least 12 characters. Do not reuse the old demo password.
-6. In the Apps Script editor, choose `setupInitialOwner` and click **Run** once. This creates the first Owner account (username: `Owner`), four default cohorts, and their forums. It does **not** create any student account. The temporary bootstrap password property is deleted after successful setup.
-7. Choose **Deploy → New deployment → Web app**:
-   - Execute as: **Me**
-   - Who has access: **Anyone** (required because the student website is hosted separately on GitHub Pages; the app itself still requires a valid account/session for private data).
-   - Deploy and copy the URL ending in `/exec`.
-8. Put that exact URL into `appsScriptUrl` in `src/config.js`. Commit the change to `main`; GitHub Actions will build and publish the site.
-8. Owner portal: open the website with `?panel=owner` at the end of its address. Sign in with username `Owner` and the private password set in Script Properties. Do not share this admin link or password with students.
-
-## Database tabs
-
-Running `setupInitialOwner` creates all required tabs and headers: Institutions, Users, Cohorts, Departments, Subjects, Enrollments, Content, Lectures, AttendanceSessions, Attendance, Exams, Grades, Announcements, ForumRooms, ForumPosts, ForumReplies, ForumReactions, Discipline, Messages, SupportTickets, Roles, AuditLog, and Settings.
-
-The initial cohort IDs are `cohort-1` through `cohort-4`. New student accounts are created only by an authorized administrator from the portal and must be assigned to an active cohort.
-
-## Access and security
-
-- Keep the spreadsheet **Restricted**. Never publish it or share it with students.
-- Owner and manager passwords are salted and hashed; plaintext passwords are not written to the sheet.
-- Student passwords are set by an administrator and are never returned by the API.
-- Admin-only actions are checked on the Apps Script server, not just hidden in the UI.
-- Student records, grades, attendance, discipline history, course content, announcements, and cohort forums are scoped to the student's institution and/or cohort as appropriate.
-- Five failed login attempts temporarily lock that login identifier for 15 minutes.
-- Sessions are stored in Script Cache and expire after six hours.
-- The web app must be reachable by the external GitHub Pages client. The spreadsheet itself remains private. Do not treat the obscurity of the admin URL as the security boundary; the server-side role check is the security boundary.
-
-## API transport and limits
-
-The frontend uses JSONP GET requests so Apps Script ContentService redirects can be handled by browsers without relying on custom CORS response headers. This is a lightweight academy backend, not a high-volume chat server. Keep requests small; forum updates currently poll. Apps Script quotas and URL length limits apply. Do not store large binary files in cells; store files in Drive and keep only approved file links in Sheets.
+عند فتح الموقع لأول مرة ينفذ `setup` تلقائيًا لإنشاء الجداول والحسابات الافتراضية. لا تضع Spreadsheet ID في الكود؛ السكربت مرتبط بالشيت ويستخدم Active Spreadsheet.
