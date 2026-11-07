@@ -264,9 +264,11 @@ function checkIn_(data,user) {
   let id, iso;
   try {
     const attendance=readRows_("Attendance");
-    if(attendance.some(x=>String(x.session_id)===sessionId && String(x.student_id)===String(user.id))) return out({success:false,message:"تم تسجيل حضورك في هذه الجلسة من قبل."});
-    const checkedAt=new Date();iso=checkedAt.toISOString();id=Utilities.getUuid();
-    appendObject_("Attendance",{id,attendance_id:id,session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:iso.slice(0,10),check_in:iso.slice(11,19),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
+    const checkedAt=new Date();
+    const attendanceDate=Utilities.formatDate(checkedAt, Session.getScriptTimeZone() || "Africa/Cairo", "yyyy-MM-dd");
+    if(attendance.some(x=>String(x.attendance_date)===attendanceDate && String(x.student_id)===String(user.id))) return out({success:false,message:"تم تسجيل حضورك بالفعل اليوم. لا يمكن تكرار الحضور في اليوم نفسه."});
+    iso=checkedAt.toISOString();id=Utilities.getUuid();
+    appendObject_("Attendance",{id,attendance_id:id,session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:attendanceDate,check_in:Utilities.formatDate(checkedAt, Session.getScriptTimeZone() || "Africa/Cairo", "HH:mm:ss"),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
   } finally { lock.releaseLock(); }
   audit_(user,"checkin","attendance",id,{session_id:sessionId,distance_meters:Math.round(distance)});
   return out({success:true,message:"تم تسجيل حضورك بنجاح.",distance_meters:Math.round(distance)});
@@ -283,8 +285,20 @@ function coordinatesFromMapsUrl_(value) {
   const candidates=[url];
   if(/maps\.app\.goo\.gl/i.test(url)) {
     try {
-      const response=UrlFetchApp.fetch(url,{followRedirects:true,muteHttpExceptions:true});
-      if(response.getResponseCode()>=200 && response.getResponseCode()<400) candidates.push(response.getFinalUrl());
+      let current=url;
+      for(let i=0;i<6;i++) {
+        const response=UrlFetchApp.fetch(current,{followRedirects:false,muteHttpExceptions:true});
+        const status=response.getResponseCode(), headers=response.getAllHeaders();
+        const location=headers.Location || headers.location || headers.LOCATION;
+        if(status>=300 && status<400 && location) {
+          const target=String(location);
+          if(/^https:\/\//i.test(target)) current=target;
+          else if(target.indexOf("//")===0) current="https:"+target;
+          else if(target.charAt(0)==="/") current=(current.match(/^https:\/\/[^/]+/)||[""])[0]+target;
+          else current=current.replace(/[^/]*$/,"")+target;
+          candidates.push(current);
+        } else break;
+      }
     } catch(err) {}
   }
   const patterns=[
@@ -359,10 +373,15 @@ function ensureDatabaseSafe_(){
   const props=PropertiesService.getScriptProperties();
   const username=props.getProperty("ADMIN_USERNAME"), password=props.getProperty("ADMIN_PASSWORD");
   if(username && password){
-    const exists=readRows_("Admins").some(r=>String(r.username||"").toLowerCase()===username.toLowerCase());
-    if(!exists){
+    const admins=readRows_("Admins");
+    const existing=admins.find(r=>String(r.username||"").toLowerCase()===username.toLowerCase());
+    if(!existing){
       const salt=Utilities.getUuid();
       appendObject_("Admins",{id:Utilities.getUuid(),username,full_name:"مدير النظام",email:"",password_hash:hash_(password,salt),password_salt:salt,role:"owner",status:"active",created_at:new Date().toISOString()});
+    } else {
+      const sh=ss.getSheetByName("Admins"), values=sh.getDataRange().getValues(), headers=values[0].map(String);
+      const row=values.findIndex((r,i)=>i>0 && String(r[headers.indexOf("username")]||"").toLowerCase()===username.toLowerCase());
+      if(row>0){const roleCol=headers.indexOf("role"),statusCol=headers.indexOf("status");if(roleCol>=0)sh.getRange(row+1,roleCol+1).setValue("owner");if(statusCol>=0)sh.getRange(row+1,statusCol+1).setValue("active");}
     }
   }
 }
@@ -434,6 +453,7 @@ function db_() {
   const truncatedId = "AlAxy147RlG96pBh1l9C3rD5lG0SHkrSEODfvQ9qs";
   if (!id || id === truncatedId) {
     id = correctId;
+    props.setProperty("SPREADSHEET_ID", id);
   }
 
   // Accept a full Google Sheets URL in Script Properties as well as a raw ID.
