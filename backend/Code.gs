@@ -85,7 +85,7 @@ function doPost(e) {
     const selectedCohort = String(data.cohort || "").trim();
     if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !COHORTS.includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
     if (section !== "settings" && ["create","update","delete","approve","reject"].includes(action) && (!selectedCohort || selectedCohort === "__all__")) return out({success:false,message:"اختر فرقة محددة قبل تنفيذ الإضافة أو التعديل أو الحذف."});
-    if (action === "upload") return upload_(data,user);
+    if (action === "upload") return out(upload_(data,user));
     if (!SECTION_SHEET[section] || ["settings"].includes(section) && !isOwner_(user)) return out({success:false,message:"قسم غير صالح أو لا تملك صلاحية إدارته."});
     let result;
     if (action === "create") result = createRecord_(section,data.record || {},user,selectedCohort);
