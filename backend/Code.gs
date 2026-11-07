@@ -32,7 +32,7 @@ const TABLES = {
 };
 const PUBLIC_ACTIONS = ['health','login','bootstrapStatus'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
-const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','saveStudent','changeStudentCohort','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions'];
+const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions'];
 
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
@@ -84,7 +84,13 @@ function dispatch_(action, req, user) {
     case 'saveStudent': return saveStudent_(req, user);
     case 'changeStudentCohort': return changeStudentCohort_(req, user);
     case 'listCohorts': return listRows_('Cohorts', user);
+    case 'saveCohort': return saveRow_('Cohorts',req.data,user,'cohort_id');
     case 'listSubjects': return listRows_('Subjects', user);
+    case 'saveSubject': return saveRow_('Subjects',req.data,user,'subject_id');
+    case 'listLectures': return listRows_('Lectures',user);
+    case 'saveLecture': return saveRow_('Lectures',req.data,user,'lecture_id');
+    case 'saveForumRoom': return saveRow_('ForumRooms',req.data,user,'room_id');
+    case 'listAttendanceSessions': return listRows_('AttendanceSessions',user);
     case 'listContent': return listRows_('Content', user, r => !r.cohort_id || r.cohort_id === user.cohort_id || isAdmin_(user));
     case 'saveContent': return saveRow_('Content', req.data, user, 'content_id');
     case 'listAnnouncements': return listRows_('Announcements', user, r => !r.cohort_id || r.cohort_id === user.cohort_id || isAdmin_(user));
