@@ -149,7 +149,8 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
   const idx=headers.indexOf("id"), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
-  assertRecordCohort_(section, values, headers, row, selectedCohort);\n  const obj={...record,updated_at:new Date().toISOString()};\n  const cohortKey=cohortField_(section);\n  if(cohortKey && selectedCohort) obj[cohortKey]=selectedCohort;
+  assertRecordCohort_(section, values, headers, row, selectedCohort);\n  const obj={...record,updated_at:new Date().toISOString()};\n  const cohortKey=cohortField_(section);\n  if(cohortKey && selectedCohort && selectedCohort!=="__unassigned__") obj[cohortKey]=selectedCohort;
+  if(section==="students" && selectedCohort==="__unassigned__" && !COHORTS.includes(String(record.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب قبل حفظه.");
   if(obj.password){const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;}
   headers.forEach((h,c)=>{if(Object.prototype.hasOwnProperty.call(obj,h)) sh.getRange(row+1,c+1).setValue(obj[h]);});
   audit_(user,"update",section,id,obj);
@@ -239,6 +240,7 @@ function assertRecordCohort_(section, values, headers, rowIndex, selectedCohort)
   if (!selectedCohort || selectedCohort === "__all__") throw new Error("اختر فرقة محددة أولاً.");
   const col = headers.indexOf(field);
   const actual = col >= 0 ? String(values[rowIndex][col] || "") : "";
+  if (selectedCohort === "__unassigned__") { if (actual) throw new Error("هذا الطالب لم يعد ضمن قائمة غير المسندين."); return; }
   if (actual !== selectedCohort) throw new Error("لا يمكن الوصول إلى سجل خارج الفرقة المحددة.");
 }
 \nfunction readRows_(name) {
