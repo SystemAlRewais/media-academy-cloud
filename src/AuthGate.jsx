@@ -9,7 +9,7 @@ import './auth.css';
 export default function AuthGate(){
   const [user,setUser]=useState(null),[checking,setChecking]=useState(Boolean(APP_CONFIG.appsScriptUrl&&getSessionToken())),[mode,setMode]=useState('student'),[identifier,setIdentifier]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[adminMode,setAdminMode]=useState(false);
   useEffect(()=>{if(APP_CONFIG.appsScriptUrl&&getSessionToken())api('me').then(r=>setUser(r.user)).catch(()=>logout()).finally(()=>setChecking(false));},[]);
-  if(!APP_CONFIG.appsScriptUrl)return <App />;
+  if(!APP_CONFIG.appsScriptUrl)return <div className="auth-screen" dir="rtl"><div className="auth-card"><h1>النظام غير مربوط بالخادم</h1><p>لم يتم إعداد رابط الخدمة بعد. تواصل مع مسؤول المنصة.</p></div></div>;
   if(checking)return <div className="auth-screen"><div className="auth-card">جارٍ التحقق من الجلسة...</div></div>;
   if(adminMode)return <AdminApp onExit={()=>setAdminMode(false)}/>;
   if(user)return <App currentUser={user} onLogout={async()=>{await logout();setUser(null);}}/>;
