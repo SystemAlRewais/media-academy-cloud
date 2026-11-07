@@ -35,7 +35,7 @@ export default function AuthGate(){
       if(logged.role!=='student'){await logout();throw new Error('ACCOUNT_ROLE_INVALID');}
       setUser(logged);
     }catch(err){
-      const messages={INVALID_CREDENTIALS:'كود الطالب أو اسم المستخدم أو كلمة المرور غير صحيحة.',BACKEND_NOT_CONFIGURED:'تعذر الاتصال بالخادم. راجع إعداد الربط.',SESSION_EXPIRED:'انتهت الجلسة. سجل الدخول مرة أخرى.',ADMIN_REQUIRED:'هذا الحساب غير مصرح له بدخول الإدارة.',ACCOUNT_ROLE_INVALID:'نوع الحساب غير صالح.'};
+      const messages={INVALID_CREDENTIALS:'كود الطالب أو اسم المستخدم أو كلمة المرور غير صحيحة.',BACKEND_NOT_CONFIGURED:'تعذر الاتصال بالخادم. راجع إعداد الربط.',SESSION_EXPIRED:'انتهت الجلسة. سجل الدخول مرة أخرى.',ADMIN_REQUIRED:'هذا الحساب غير مصرح له بدخول الإدارة.',ACCOUNT_ROLE_INVALID:'نوع الحساب غير صالح.',TOO_MANY_ATTEMPTS:'تم إيقاف محاولات الدخول مؤقتاً. حاول بعد 15 دقيقة.'};
       setError(messages[err.message]||err.message||'تعذر تسجيل الدخول.');
     }finally{setBusy(false);}
   };
