@@ -95,7 +95,7 @@ function dispatch_(action, req, user) {
     case 'createForumPost': return createForumPost_(req, user);
     case 'replyForumPost': return replyForumPost_(req, user);
     case 'listAttendance': return listRows_('Attendance', user, r => isAdmin_(user) || r.student_id === user.user_id);
-    case 'createAttendanceSession': requireAdmin_(user); return saveRow_('AttendanceSessions', req.data, user, 'session_id');
+    case 'createAttendanceSession': requireAdmin_(user); return createAttendanceSession_(req,user);
     case 'checkIn': return checkIn_(req, user);
     case 'listGrades': return listRows_('Grades', user, r => isAdmin_(user) || r.student_id === user.user_id);
     case 'saveGrade': requireAdmin_(user); return saveRow_('Grades', req.data, user, 'grade_id');
@@ -239,6 +239,15 @@ function replyForumPost_(req,user) {
   const post = findById_('ForumPosts','post_id',req.post_id);
   if (!post || post.institution_id!==user.institution_id || !String(req.body||'').trim()) throw new Error('POST_NOT_FOUND');
   return saveRow_('ForumReplies',{reply_id:Utilities.getUuid(),post_id:req.post_id,author_id:user.user_id,body:String(req.body).slice(0,3000),created_at:new Date().toISOString(),status:'active'},user,'reply_id');
+}
+function createAttendanceSession_(req,user) {
+  const d=Object.assign({},req.data||{});
+  if (!d.lecture_id || !d.code || !d.latitude || !d.longitude || !d.radius_meters) throw new Error('SESSION_FIELDS_REQUIRED');
+  d.session_id=Utilities.getUuid();
+  d.secret_code_hash=hash_(String(d.code),d.session_id);
+  delete d.code;
+  d.status='open';
+  return saveRow_('AttendanceSessions',d,user,'session_id');
 }
 function checkIn_(req,user) {
   const session = findById_('AttendanceSessions','session_id',req.session_id);
