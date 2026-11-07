@@ -401,7 +401,7 @@ function forumFeed_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
   if (!canAccessRoom_(room,user)) throw new Error('ROOM_NOT_FOUND');
   const posts = rows_('ForumPosts').filter(p=>p.room_id===req.room_id && p.status==='active' && p.institution_id===user.institution_id);
-  return {ok:true,data:posts.map(p=>{const author=findById_('Users','user_id',p.author_id);return Object.assign({},p,{author_name:author?author.full_name:'طالب',replies:rows_('ForumReplies').filter(r=>r.post_id===p.post_id && r.status==='active')});})};
+  return {ok:true,data:posts.map(p=>{const author=findById_('Users','user_id',p.author_id);const replies=rows_('ForumReplies').filter(r=>r.post_id===p.post_id && r.status==='active').map(r=>{const replyAuthor=findById_('Users','user_id',r.author_id);return Object.assign({},r,{author_name:replyAuthor?replyAuthor.full_name:'طالب'});});return Object.assign({},p,{author_name:author?author.full_name:'طالب',replies:replies});})};
 }
 function createForumPost_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
