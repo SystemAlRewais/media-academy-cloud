@@ -2,6 +2,13 @@
 
 This backend uses a **private Google Sheet only as its storage layer**. Students never receive the spreadsheet URL or access to the sheet. The owner/admin creates student accounts from the admin portal; there is no public student registration.
 
+## Website portals
+
+- Student portal: `https://systemalrewais.github.io/media-academy-cloud/`
+- Private admin login route: `https://systemalrewais.github.io/media-academy-cloud/?panel=owner`
+
+Both portals use the same server-side account system. The route is not a substitute for authentication; only active accounts with an admin role can enter the admin console.
+
 ## One-time setup
 
 1. Create a **new blank Google Spreadsheet** and keep its sharing set to **Restricted**. Do not share it with students.
