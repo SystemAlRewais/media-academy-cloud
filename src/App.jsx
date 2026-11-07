@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { APP_CONFIG, COHORTS } from './config.js';
 import { api } from './services/api.js';
-import AdminApp from './admin/AdminApp.jsx';
 
 const initialMessages = [];
 
@@ -17,7 +16,7 @@ const navItems = [
   ['overview','الرئيسية',LayoutDashboard], ['profile','ملفي الجامعي',UserCircle],
   ['forum','المنتدى الطلابي',MessageCircle], ['study','المحتوى الدراسي',BookOpen],
   ['attendance','الحضور والمحاضرات',CalendarDays], ['discipline','السجل الجامعي',ShieldCheck],
-  ['announcements','الإعلانات والرسائل',Bell], ['support','الشكاوى والمقترحات',CircleHelp], ['admin','إدارة المنصة',Settings]
+  ['announcements','الإعلانات والرسائل',Bell], ['support','الشكاوى والمقترحات',CircleHelp]
 ];
 
 function IconButton({ children, onClick, title }) {
@@ -57,7 +56,6 @@ function App({ currentUser, onLogout }) {
     return <Overview setPage={setPage} currentUser={currentUser} />;
   };
 
-  if (page === 'admin') return <AdminApp onExit={() => setPage('overview')} />;
 
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
@@ -70,7 +68,7 @@ function App({ currentUser, onLogout }) {
     {menuOpen && <div className="mobile-scrim" onClick={() => setMenuOpen(false)}/>}
     <main className="main-area">
       <header className="topbar"><div className="top-left"><IconButton onClick={() => setMenuOpen(true)} title="القائمة"><Menu/></IconButton><div className="breadcrumb">بوابة الطالب <ChevronLeft size={14}/><b>{pageTitle}</b></div></div><div className="top-actions">{onLogout && <IconButton onClick={() => onLogout()} title="تسجيل الخروج"><LogOut/></IconButton>}<div className="online-pill"><span className="live-dot"/> متصل بالمنصة</div><IconButton onClick={() => notify('لا توجد إشعارات جديدة')} title="الإشعارات"><Bell/><i/></IconButton><div className="top-avatar">{(currentUser?.full_name || 'أ').slice(0,1)}</div></div></header>
-      <div className="page-wrap"><div className="page-heading"><div><div className="eyebrow">السبت، ٧ نوفمبر ٢٠٢٦ <span>•</span> الفصل الدراسي الأول</div><h1>{page === 'overview' ? `أهلاً بيك، ${currentUser?.full_name || 'أحمد'} 👋` : pageTitle}</h1><p>{page === 'overview' ? 'كل تفاصيل رحلتك الجامعية في مكان واحد.' : 'تابع تفاصيلك وخدماتك الجامعية من مكان واحد.'}</p></div><div className="heading-actions"><button className="btn-outline" onClick={() => notify('سيتم تفعيل المزامنة بعد ربط النظام')}><Activity size={16}/> حالة النظام</button></div></div>{renderPage()}</div>
+      <div className="page-wrap"><div className="page-heading"><div><div className="eyebrow">السبت، ٧ نوفمبر ٢٠٢٦ <span>•</span> الفصل الدراسي الأول</div><h1>{page === 'overview' ? `أهلاً بيك، ${currentUser?.full_name || 'أحمد'} 👋` : pageTitle}</h1><p>{page === 'overview' ? 'كل تفاصيل رحلتك الجامعية في مكان واحد.' : 'تابع تفاصيلك وخدماتك الجامعية من مكان واحد.'}</p></div><div className="heading-actions"><button className="btn-outline" onClick={() => window.location.reload()}><Activity size={16}/> تحديث البيانات</button></div></div>{renderPage()}</div>
     </main>
     {toast && <div className="toast"><CheckCircle2 size={18}/>{toast}</div>}
   </div>;
@@ -93,7 +91,7 @@ function Profile({notify,currentUser}) {
     tab==='academic'?
     [['الفرقة الدراسية',currentUser?.cohort_id],['القسم',currentUser?.department],['الدور',currentUser?.role]]:
     [['البريد الإلكتروني',currentUser?.email],['رقم الهاتف',currentUser?.phone]];
-  return <div className="profile-layout"><div className="profile-main"><div className="profile-hero"><div className="profile-cover"><div className="cover-pattern"/></div><div className="profile-identity"><div className="profile-avatar">{(currentUser?.full_name||'ط').slice(0,1)}</div><div className="identity-copy"><div className="identity-name"><h2>{currentUser?.full_name||'الطالب'}</h2><span className="verified"><ShieldCheck size={13}/> حساب طالب</span></div><p>الملف الجامعي المسجل في الأكاديمية</p><div className="identity-tags"><span><Hash size={13}/> {currentUser?.student_code||'—'}</span></div></div></div><div className="profile-tabs">{[['personal','البيانات الشخصية'],['academic','البيانات الأكاديمية'],['contact','التواصل']].map(([id,label])=><button className={tab===id?'selected':''} onClick={()=>setTab(id)} key={id}>{label}</button>)}</div></div><div className="panel profile-details"><div className="panel-head"><div><h3>بيانات الحساب</h3><p>المعلومات المسجلة فعلياً في قاعدة الأكاديمية</p></div><span className="private-label"><Shield size={13}/> بيانات خاصة</span></div><div className="details-grid">{fields.map(([k,v])=><div className="detail-field" key={k}><small>{k}</small><b>{v||'غير مسجل'}</b></div>)}</div></div></div><aside className="profile-side"><div className="panel status-panel"><div className="status-orb"><ShieldCheck size={27}/></div><h3>حالة الحساب</h3><span className="status-good">{currentUser?.status==='active'?'نشط':'راجع الإدارة'}</span><p>تعرض هذه الصفحة بيانات الحساب المتاحة فقط، دون بيانات شخصية غير مسجلة.</p></div></aside></div>;
+  return <div className="profile-layout"><div className="profile-main"><div className="profile-hero"><div className="profile-cover"><div className="cover-pattern"/></div><div className="profile-identity"><div className="profile-avatar">{(currentUser?.full_name||'ط').slice(0,1)}</div><div className="identity-copy"><div className="identity-name"><h2>{currentUser?.full_name||'الطالب'}</h2><span className="verified"><ShieldCheck size={13}/> حساب طالب</span></div><p>الملف الجامعي المسجل في الأكاديمية</p><div className="identity-tags"><span><Hash size={13}/> {currentUser?.student_code||'—'}</span></div></div></div><div className="profile-tabs">{[['personal','البيانات الشخصية'],['academic','البيانات الأكاديمية'],['contact','التواصل']].map(([id,label])=><button className={tab===id?'selected':''} onClick={()=>setTab(id)} key={id}>{label}</button>)}</div></div><div className="panel profile-details"><div className="panel-head"><div><h3>بيانات الحساب</h3><p>المعلومات المسجلة في ملفك الأكاديمي</p></div><span className="private-label"><Shield size={13}/> بيانات خاصة</span></div><div className="details-grid">{fields.map(([k,v])=><div className="detail-field" key={k}><small>{k}</small><b>{v||'غير مسجل'}</b></div>)}</div></div></div><aside className="profile-side"><div className="panel status-panel"><div className="status-orb"><ShieldCheck size={27}/></div><h3>حالة الحساب</h3><span className="status-good">{currentUser?.status==='active'?'نشط':'راجع الإدارة'}</span><p>تعرض هذه الصفحة بيانات الحساب المتاحة فقط، دون بيانات شخصية غير مسجلة.</p></div></aside></div>;
 }
 
 function Forum() {
