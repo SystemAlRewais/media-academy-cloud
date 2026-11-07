@@ -129,6 +129,12 @@ function db_() {
   return SpreadsheetApp.openById(id);
 }
 function prop_(key) { return PropertiesService.getScriptProperties().getProperty(key) || ''; }
+function initializeCurrentSpreadsheet() {
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  if(!ss) throw new Error('Open this Apps Script project from the new Google Spreadsheet first.');
+  PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID',ss.getId());
+  return setupDatabase()+' — '+ss.getUrl();
+}
 function setupDatabase() {
   const ss = db_();
   Object.keys(TABLES).forEach(name => {
