@@ -16,6 +16,7 @@ jobs:
         run: |
           node --check assets/js/config.js
           node --check assets/js/app.js
+          node --check < backend/Code.gs
       - name: Validate site assets
         run: |
           python - <<'PY'
