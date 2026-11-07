@@ -1,1 +1,1 @@
-attendance_id,student_id,lecture_id,attendance_date,check_in_time,latitude,longitude,distance_m,status,verification_method
+attendance_id,student_id,lecture_id,attendance_time,latitude,longitude,status,verification_method\n

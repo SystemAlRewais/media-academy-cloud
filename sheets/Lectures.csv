@@ -1,1 +1,1 @@
-lecture_id,title,description,material_id,video_url,lecture_date,duration_minutes,status
+lecture_id,course_id,title,lecture_date,start_time,end_time,location,meeting_url,status\n

@@ -1,1 +1,1 @@
-exam_id,title,subject,exam_type,start_at,end_at,total_score,status
+exam_id,course_id,title,exam_date,start_time,duration_minutes,total_score,status\n
