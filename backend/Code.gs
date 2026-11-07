@@ -206,7 +206,14 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   }
   const cohortKey=cohortField_(section);
   if(cohortKey && selectedCohort && selectedCohort!=="__unassigned__") obj[cohortKey]=selectedCohort;
-  if(section==="students" && selectedCohort==="__unassigned__" && !COHORTS.includes(String(record.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب قبل حفظه.");
+  if(section==="students") {
+    const cohortCol=headers.indexOf("cohort"), statusCol=headers.indexOf("status");
+    const oldCohort=cohortCol>=0?String(values[row][cohortCol]||""):"";
+    const nextCohort=record.cohort===undefined?oldCohort:String(record.cohort||"");
+    const nextStatus=record.status===undefined?(statusCol>=0?String(values[row][statusCol]||""):""):String(record.status);
+    if(nextCohort && !COHORTS.includes(nextCohort)) throw new Error("الفرقة الدراسية المحددة غير صحيحة.");
+    if(nextStatus==="active" && !COHORTS.includes(nextCohort)) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
+  }
   if(obj.password){const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;}
   headers.forEach((h,c)=>{if(Object.prototype.hasOwnProperty.call(obj,h)) sh.getRange(row+1,c+1).setValue(obj[h]);});
   audit_(user,"update",section,id,obj);
