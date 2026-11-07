@@ -58,6 +58,12 @@ function doGet(e) {
       return inCohort && (!r.department || !user.department || String(r.department) === String(user.department)) && visibleStatus;
     });
     if (section === "settings" && !isOwner_(user)) rows = rows.filter(r => !/^admin_/i.test(String(r.key)));
+    if (section === "attendance" && user.role === "student") {
+      const now=Date.now();
+      const activeSessions=readRows_("AttendanceSessions").filter(x=>String(x.cohort||"")===String(user.cohort||"") && String(x.status||"") === "active" && new Date(x.opens_at).getTime()<=now && new Date(x.closes_at).getTime()>=now).map(x=>({session_id:x.session_id,title:x.title,lecture_id:x.lecture_id,cohort:x.cohort,opens_at:x.opens_at,closes_at:x.closes_at,radius_meters:x.radius_meters}));
+      return out({success:true,items:rows,activeSessions});
+    }
+    if (section === "attendance_sessions") rows = rows.map(x=>{delete x.code_hash;delete x.code_salt;return x;});
     return out({success:true,items:rows});
   } catch(err) { return out({success:false,message:String(err)}); }
 }
