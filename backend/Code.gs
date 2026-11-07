@@ -12,14 +12,15 @@ const TABLES = {
   Lectures: ["id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","status","created_at","updated_at"],
   Exams: ["id","title","description","course_id","cohort","start_at","end_at","duration_minutes","status","created_at","updated_at"],
   Results: ["id","exam_id","student_id","student_code","cohort","score","max_score","notes","published","created_at","updated_at"],
-  Attendance: ["id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","status","latitude","longitude","notes","created_at"],
+  Attendance: ["id","attendance_id","session_id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","checked_at","status","latitude","longitude","distance_meters","notes","created_at"],
+  AttendanceSessions: ["session_id","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at"],
   Announcements: ["id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at"],
   Complaints: ["id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at"],
   Settings: ["key","value","updated_at"],
   AuditLog: ["id","actor","action","section","record_id","details","created_at"]
 };
 const PUBLIC_SECTIONS = ["courses","materials","lectures","schedule","exams","announcements"];
-const SECTION_SHEET = {students:"Students",courses:"Courses",materials:"Materials",lectures:"Lectures",schedule:"Lectures",exams:"Exams",results:"Results",attendance:"Attendance",announcements:"Announcements",complaints:"Complaints",settings:"Settings"};
+const SECTION_SHEET = {students:"Students",courses:"Courses",materials:"Materials",lectures:"Lectures",schedule:"Lectures",exams:"Exams",results:"Results",attendance:"Attendance",announcements:"Announcements",complaints:"Complaints",attendance_sessions:"AttendanceSessions",settings:"Settings"};
 
 function doGet(e) {
   try {
@@ -266,6 +267,7 @@ function ensureDatabaseSafe_(){
 
 function cohortField_(section) {
   if (section === "announcements") return "target_cohort";
+  if (section === "attendance_sessions") return "cohort";
   if (["students","courses","materials","lectures","schedule","exams","results","attendance","complaints"].includes(section)) return "cohort";
   return "";
 }
