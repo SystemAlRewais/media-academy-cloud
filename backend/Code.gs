@@ -29,7 +29,7 @@ const TABLES = {
   AuditLog: ['log_id','institution_id','actor_id','action','entity','entity_id','details_json','created_at'],
   Settings: ['key','value','updated_by','updated_at']
 };
-const PUBLIC_ACTIONS = ['health','login','bootstrapStatus','bootstrapOwner'];
+const PUBLIC_ACTIONS = ['health','login','bootstrapStatus','bootstrapOwner','adminPinLogin'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
 const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','listExams','saveExam','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','closeAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions','listManagers','saveManager'];
 
@@ -63,6 +63,7 @@ function route_(req) {
     if (action === 'health') return {ok:true,service:'Media Academy Cloud API',time:new Date().toISOString()};
     if (action === 'bootstrapStatus') return {ok:true,initialized:rows_('Users').some(u=>u.role==='owner'||u.role==='super_admin')};
     if (action === 'bootstrapOwner') return bootstrapOwner_(req);
+    if (action === 'adminPinLogin') return adminPinLogin_(req);
     if (action === 'login') return login_(req);
     const user = authorize_(req.token, action);
     if (ADMIN_ONLY_ACTIONS.indexOf(action) >= 0) requireAdmin_(user);
@@ -176,6 +177,49 @@ function bootstrapOwner_(req) {
   } finally { lock.releaseLock(); }
 }
 
+function adminPinLogin_(req) {
+  const cache=CacheService.getScriptCache();
+  const key='admin_pin_fail';
+  const attempts=Number(cache.get(key)||0);
+  if(attempts>=5) throw new Error('TOO_MANY_ATTEMPTS');
+  const pin=String((req.data&&req.data.pin)||req.pin||'');
+  if(pin!=='44554455') {
+    cache.put(key,String(attempts+1),900);
+    throw new Error('INVALID_ADMIN_PIN');
+  }
+  cache.remove(key);
+  const lock=LockService.getScriptLock();
+  if(!lock.tryLock(15000)) throw new Error('SETUP_BUSY');
+  try {
+    setupDatabase();
+    const ss=db_(), now=new Date().toISOString();
+    let institution=findById_('Institutions','institution_id','default');
+    if(!institution) {
+      ss.getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',now]);
+    }
+    const cohorts=[['cohort-1','الفرقة الأولى','1'],['cohort-2','الفرقة الثانية','2'],['cohort-3','الفرقة الثالثة','3'],['cohort-4','الفرقة الرابعة','4']];
+    cohorts.forEach(x=>{
+      if(!findById_('Cohorts','cohort_id',x[0])) ss.getSheetByName('Cohorts').appendRow([x[0],'default',x[1],x[2],'','active']);
+      if(!rows_('ForumRooms').some(r=>r.cohort_id===x[0]&&r.institution_id==='default')) ss.getSheetByName('ForumRooms').appendRow([Utilities.getUuid(),'default',x[0],'منتدى '+x[1],'cohort','active',now]);
+    });
+    if(!rows_('ForumRooms').some(r=>r.room_type==='general'&&r.institution_id==='default')) ss.getSheetByName('ForumRooms').appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',now]);
+    let owner=rows_('Users').find(u=>u.role==='owner'||u.role==='super_admin');
+    if(!owner) {
+      const salt=Utilities.getUuid(), id=Utilities.getUuid();
+      ss.getSheetByName('Users').appendRow([id,'default','','owner','مدير النظام','', '',hash_(Utilities.getUuid(),salt),salt,'owner','','','active','',now,now]);
+      owner=findById_('Users','user_id',id);
+    }
+    const demoCode='TEST001';
+    if(!rows_('Users').some(u=>u.student_code===demoCode)) {
+      const salt=Utilities.getUuid(), id=Utilities.getUuid();
+      ss.getSheetByName('Users').appendRow([id,'default',demoCode,demoCode,'طالب تجريبي','', '',hash_('Student@2026',salt),salt,'student','cohort-1','','active','',now,now]);
+    }
+    const token=Utilities.getUuid()+Utilities.getUuid();
+    cache.put('sess_'+token,owner.user_id,21600);
+    audit_(owner,'ADMIN_PIN_LOGIN','Users',owner.user_id,{});
+    return {ok:true,token:token,user:safeUser_(owner),expires_in:21600,student_demo:{student_code:demoCode,password:'Student@2026'}};
+  } finally { lock.releaseLock(); }
+}
 function login_(req) {
   const identifier = String(req.identifier || req.email || '').trim().toLowerCase();
   const password = String(req.password || '');
