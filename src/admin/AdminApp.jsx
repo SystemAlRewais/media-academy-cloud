@@ -5,26 +5,27 @@ import './admin.css';
 
 const sections=[
  ['dashboard','لوحة التحكم',LayoutDashboard],['students','الطلاب',Users],['cohorts','الفرق الدراسية',GraduationCap],
- ['subjects','المواد',BookOpen],['lectures','المحاضرات',CalendarDays],['content','المحتوى الدراسي',BookOpen],
+ ['subjects','المواد',BookOpen],['lectures','المحاضرات',CalendarDays],['exams','الاختبارات',CheckCircle2],['content','المحتوى الدراسي',BookOpen],
  ['attendance','جلسات الحضور',CalendarDays],['grades','الدرجات',CheckCircle2],['discipline','السجل الانضباطي',ShieldCheck],
  ['announcements','الإعلانات',Bell],['forum','المنتدى',MessageCircle],['tickets','الشكاوى',AlertTriangle],
  ['institutions','المؤسسات',ShieldCheck],['managers','مديرو المؤسسات',Users],['settings','سجل العمليات',Settings]
 ];
 const adminRoles=['owner','super_admin','admin','staff'];
-const listActions={students:'listStudents',cohorts:'listCohorts',subjects:'listSubjects',lectures:'listLectures',content:'listContent',attendance:'listAttendanceSessions',grades:'listGrades',discipline:'listDiscipline',announcements:'listAnnouncements',forum:'listForumPosts',tickets:'listTickets',institutions:'listInstitutions',managers:'listManagers',settings:'auditLog'};
-const createActions={managers:'saveManager',students:'saveStudent',cohorts:'saveCohort',subjects:'saveSubject',lectures:'saveLecture',content:'saveContent',attendance:'createAttendanceSession',grades:'saveGrade',discipline:'recordDiscipline',announcements:'saveAnnouncement',forum:'saveForumRoom',institutions:'saveInstitution',tickets:'updateTicket'};
+const listActions={students:'listStudents',cohorts:'listCohorts',subjects:'listSubjects',lectures:'listLectures',exams:'listExams',content:'listContent',attendance:'listAttendanceSessions',grades:'listGrades',discipline:'listDiscipline',announcements:'listAnnouncements',forum:'listForumPosts',tickets:'listTickets',institutions:'listInstitutions',managers:'listManagers',settings:'auditLog'};
+const createActions={managers:'saveManager',students:'saveStudent',cohorts:'saveCohort',subjects:'saveSubject',lectures:'saveLecture',exams:'saveExam',content:'saveContent',attendance:'createAttendanceSession',grades:'saveGrade',discipline:'recordDiscipline',announcements:'saveAnnouncement',forum:'saveForumRoom',institutions:'saveInstitution',tickets:'updateTicket'};
 const fields={
  managers:[['full_name','اسم المدير'],['email','البريد الإلكتروني'],['phone','رقم الهاتف'],['institution_id','معرّف المؤسسة'],['role','الصلاحية (admin أو staff أو super_admin)'],['initial_password','كلمة مرور مؤقتة (12 حرفاً على الأقل)']],
  students:[['full_name','اسم الطالب'],['student_code','كود الطالب'],['email','البريد الإلكتروني'],['phone','رقم الهاتف'],['cohort_id','معرّف الفرقة'],['department','القسم'],['status','الحالة'],['initial_password','كلمة مرور جديدة (اختياري)']],
  cohorts:[['name','اسم الفرقة'],['level','المستوى'],['academic_year','العام الدراسي']],
- subjects:[['name','اسم المادة'],['code','كود المادة'],['cohort_id','معرّف الفرقة'],['instructor','المحاضر']],
- lectures:[['title','عنوان المحاضرة'],['cohort_id','معرّف الفرقة'],['subject_id','معرّف المادة'],['starts_at','موعد البداية'],['ends_at','موعد النهاية'],['location_name','المكان']],
- content:[['title','عنوان المحتوى'],['content_type','نوع المحتوى'],['file_url','رابط الملف'],['description','الوصف'],['cohort_id','معرّف الفرقة']],
+ subjects:[['name','اسم المادة'],['code','كود المادة'],['cohort_id','الفرقة الدراسية'],['instructor','المحاضر']],
+ lectures:[['title','عنوان المحاضرة'],['cohort_id','الفرقة الدراسية'],['subject_id','المادة'],['starts_at','موعد البداية'],['ends_at','موعد النهاية'],['location_name','المكان']],
+ exams:[['title','اسم الاختبار'],['cohort_id','الفرقة الدراسية'],['subject_id','المادة'],['exam_date','تاريخ الاختبار'],['total_marks','الدرجة النهائية'],['status','الحالة']],
+ content:[['title','عنوان المحتوى'],['content_type','نوع المحتوى'],['file_url','رابط الملف'],['description','الوصف'],['cohort_id','الفرقة الدراسية']],
  attendance:[['lecture_id','معرّف المحاضرة'],['code','كود الحضور السري'],['location_url','رابط موقع المحاضرة من خرائط Google'],['radius_meters','نطاق السماح بالمتر'],['opens_at','موعد الفتح (ISO)'],['closes_at','موعد الإغلاق (ISO)']],
- grades:[['student_id','معرّف الطالب'],['subject_id','معرّف المادة'],['exam_id','معرّف الامتحان'],['score','الدرجة'],['total_marks','الدرجة النهائية']],
- discipline:[['student_id','معرّف الطالب'],['student_code','كود الطالب'],['event_type','نوع الواقعة'],['title','العنوان'],['description','الوصف'],['decision','الإجراء'],['visibility','مستوى الظهور']],
- announcements:[['title','عنوان الإعلان'],['body','نص الإعلان'],['cohort_id','معرّف الفرقة (اتركه فارغاً للكل)']],
- forum:[['name','اسم المنتدى'],['room_type','نوع المنتدى'],['cohort_id','معرّف الفرقة (اختياري)']],
+ grades:[['student_id','الطالب'],['subject_id','المادة'],['exam_id','الاختبار'],['score','الدرجة'],['total_marks','الدرجة النهائية']],
+ discipline:[['student_id','الطالب'],['student_code','كود الطالب'],['event_type','نوع الواقعة'],['title','العنوان'],['description','الوصف'],['decision','الإجراء'],['visibility','مستوى الظهور']],
+ announcements:[['title','عنوان الإعلان'],['body','نص الإعلان'],['cohort_id','الفرقة (اتركه فارغاً للكل)']],
+ forum:[['name','اسم المنتدى'],['room_type','نوع المنتدى'],['cohort_id','الفرقة (اختياري)']],
  institutions:[['name','اسم المؤسسة'],['slug','الرابط المختصر'],['status','الحالة'],['primary_color','اللون الأساسي']],
  tickets:[['ticket_id','معرّف الطلب'],['status','حالة الطلب (new / in_progress / resolved / closed)'],['assigned_to','مسند إلى']]
 };
