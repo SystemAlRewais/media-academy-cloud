@@ -8,6 +8,7 @@ import {
   MessageSquareText, Pin, ThumbsUp, Heart, Image, Smile, Video, Mic
 } from 'lucide-react';
 import { APP_CONFIG, COHORTS } from './config.js';
+import AdminApp from './admin/AdminApp.jsx';
 
 const initialMessages = [
   { id: 1, name: 'مريم أحمد', cohort: 'الفرقة الثانية', time: 'منذ دقيقتين', text: 'يا جماعة حد معاه ملخص محاضرة التسويق؟', replies: 8, likes: 12, tag: 'مساعدة دراسية', color: 'lavender' },
@@ -19,7 +20,7 @@ const navItems = [
   ['overview','الرئيسية',LayoutDashboard], ['profile','ملفي الجامعي',UserCircle],
   ['forum','المنتدى الطلابي',MessageCircle], ['study','المحتوى الدراسي',BookOpen],
   ['attendance','الحضور والمحاضرات',CalendarDays], ['discipline','السجل الجامعي',ShieldCheck],
-  ['announcements','الإعلانات والرسائل',Bell], ['support','الشكاوى والمقترحات',CircleHelp]
+  ['announcements','الإعلانات والرسائل',Bell], ['support','الشكاوى والمقترحات',CircleHelp], ['admin','إدارة المنصة',Settings]
 ];
 
 function IconButton({ children, onClick, title }) {
@@ -59,6 +60,8 @@ function App() {
     if (page === 'support') return <Support notify={notify} />;
     return <Overview setPage={setPage} />;
   };
+
+  if (page === 'admin') return <AdminApp onExit={() => setPage('overview')} />;
 
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
