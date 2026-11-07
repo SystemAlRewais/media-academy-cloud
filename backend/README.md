@@ -7,16 +7,16 @@ This backend uses a **private Google Sheet only as its storage layer**. Students
 1. Create a **new blank Google Spreadsheet** and keep its sharing set to **Restricted**. Do not share it with students.
 2. Open **Extensions → Apps Script** from that spreadsheet.
 3. Replace the contents of `Code.gs` with the complete code in this repository's `backend/Code.gs`.
-4. In Apps Script, open **Project Settings → Script Properties** and add:
-   - `SPREADSHEET_ID`: the ID from the new spreadsheet URL (between `/d/` and `/edit`).
+4. In the Apps Script editor, choose `initializeCurrentSpreadsheet` and click **Run** once. Approve the requested Google permissions. It automatically saves this spreadsheet's ID and creates all database tabs.
+5. Open **Project Settings → Script Properties** and add:
    - `BOOTSTRAP_EMAIL`: the private owner email address.
    - `BOOTSTRAP_PASSWORD`: a new, unique password of at least 12 characters. Do not reuse the old demo password.
-5. In the Apps Script editor, choose `setupInitialOwner` and click **Run** once. Approve the requested Google permissions. This creates the database tabs, the first Owner account (username: `Owner`), four default cohorts, and their forums. It does **not** create any student account.
-6. Choose **Deploy → New deployment → Web app**:
+6. In the Apps Script editor, choose `setupInitialOwner` and click **Run** once. This creates the first Owner account (username: `Owner`), four default cohorts, and their forums. It does **not** create any student account. The temporary bootstrap password property is deleted after successful setup.
+7. Choose **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone** (required because the student website is hosted separately on GitHub Pages; the app itself still requires a valid account/session for private data).
    - Deploy and copy the URL ending in `/exec`.
-7. Put that exact URL into `appsScriptUrl` in `src/config.js`. Commit the change to `main`; GitHub Actions will build and publish the site.
+8. Put that exact URL into `appsScriptUrl` in `src/config.js`. Commit the change to `main`; GitHub Actions will build and publish the site.
 8. Owner portal: open the website with `?panel=owner` at the end of its address. Sign in with username `Owner` and the private password set in Script Properties. Do not share this admin link or password with students.
 
 ## Database tabs
