@@ -260,16 +260,23 @@ function updateRow_(table,data,user,idKey) { return saveRow_(table,data,user,idK
 function saveManager_(req,user) {
   requireRole_(user,['owner','super_admin']);
   const d=Object.assign({},req.data||{});
-  if(!d.full_name||!d.email||!d.institution_id||!d.initial_password) throw new Error('MANAGER_FIELDS_REQUIRED');
+  const existing=d.user_id?findById_('Users','user_id',d.user_id):null;
+  if(existing && (existing.institution_id!==user.institution_id || !['admin','staff','super_admin'].includes(existing.role)))throw new Error('MANAGER_NOT_FOUND');
+  if(!d.full_name||!d.email||(!existing&&!d.institution_id)) throw new Error('MANAGER_FIELDS_REQUIRED');
   if(!['admin','staff','super_admin'].includes(d.role)) throw new Error('INVALID_MANAGER_ROLE');
   if(d.role==='super_admin'&&user.role!=='owner') throw new Error('FORBIDDEN');
-  const institution=findById_('Institutions','institution_id',d.institution_id);
+  const institutionId=existing?existing.institution_id:d.institution_id;
+  const institution=findById_('Institutions','institution_id',institutionId);
   if(!institution) throw new Error('INSTITUTION_NOT_FOUND');
   const email=String(d.email).trim().toLowerCase();
-  if(rows_('Users').some(x=>String(x.email||'').toLowerCase()===email)) throw new Error('EMAIL_EXISTS');
-  if(String(d.initial_password).length<12) throw new Error('MANAGER_PASSWORD_TOO_SHORT');
-  const salt=Utilities.getUuid();
-  const record={user_id:Utilities.getUuid(),institution_id:d.institution_id,full_name:String(d.full_name).trim(),email,phone:d.phone||'',password_hash:hash_(String(d.initial_password),salt),password_salt:salt,role:d.role,status:'active',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(rows_('Users').some(x=>x.user_id!==(existing&&existing.user_id) && String(x.email||'').toLowerCase()===email)) throw new Error('EMAIL_EXISTS');
+  let salt=existing?existing.password_salt:'', passwordHash=existing?existing.password_hash:'';
+  if(d.initial_password) {
+    if(String(d.initial_password).length<12) throw new Error('MANAGER_PASSWORD_TOO_SHORT');
+    salt=Utilities.getUuid();passwordHash=hash_(String(d.initial_password),salt);
+  } else if(!existing) throw new Error('MANAGER_PASSWORD_TOO_SHORT');
+  const record={user_id:existing?existing.user_id:Utilities.getUuid(),institution_id:institutionId,username:String(d.username||email).trim(),full_name:String(d.full_name).trim(),email,phone:d.phone||'',password_hash:passwordHash,password_salt:salt,role:d.role,status:d.status||'active',created_at:existing?existing.created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  delete d.initial_password;
   return saveRow_('Users',record,user,'user_id');
 }
 function saveStudent_(req,user) {
