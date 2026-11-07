@@ -1,0 +1,4 @@
+setting_key,setting_value,description
+academy_name,Media Academy,اسم الأكاديمية
+attendance_location_url,,رابط موقع الحضور
+attendance_radius_m,150,نطاق الحضور بالمتر

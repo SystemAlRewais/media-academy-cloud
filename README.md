@@ -1,25 +1,27 @@
-# Media Academy Cloud
+# Media Academy — نسخة واجهة مستقلة
 
-منصة إدارة أكاديمية عربية، بواجهة ثابتة على GitHub Pages وقاعدة بيانات Google Sheets عبر Google Apps Script.
-
-## الملفات الأساسية
-- `index.html`: الموقع كاملًا (واجهة الطالب ولوحة الإدارة).
-- `backend/Code.gs`: واجهة API التي تقرأ وتكتب في Google Sheets.
-- `Media_Academy_Cloud_Database.xlsx`: قالب الجداول. ارفعه إلى Google Drive وافتحه كـ Google Sheets.
+موقع أكاديمية إعلامية بواجهة عربية RTL، يعمل حالياً كتجربة Front-end مستقلة دون Google Apps Script أو قاعدة بيانات سحابية.
 
 ## التشغيل
-1. ارفع ملف Excel إلى Google Drive وافتحه باستخدام Google Sheets.
-2. من داخل الشيت افتح Extensions → Apps Script.
-3. استبدل محتوى `Code.gs` بالكود الموجود في `backend/Code.gs` ثم Save.
-4. Deploy → New deployment → Web app. اختر Execute as: Me و Who has access: Anyone ثم Deploy.
-5. انسخ رابط Web app وأرسله لي لأربطه في `index.html`.
-6. انتظر نجاح GitHub Actions ثم افتح رابط GitHub Pages.
+- افتح `index.html` مباشرة أو انشر المستودع على GitHub Pages.
+- البيانات التجريبية تحفظ في Local Storage على نفس المتصفح والجهاز.
+- لا توجد أي مفاتيح API أو روابط تخزين سحابي في هذه النسخة.
 
-## حسابات البداية
-- الإدارة: `Owner` / `4455445`
-- الطالب التجريبي: `AZ1` / `5656`
+## دخول تجريبي
+- الإدارة: `admin` / `admin123`
+- الطالب: `AZ1001` / `1234`
 
-ينشئ السكربت الجداول والحسابين تلقائيًا عند أول تشغيل. غيّر كلمات المرور بعد أول دخول.
+## الملفات
+- `index.html`: نقطة الدخول.
+- `styles.css`: التصميم المتجاوب.
+- `app.js`: تسجيل الدخول والتسجيل والواجهات والبيانات المحلية.
+- `sheets/`: قوالب CSV لأوراق Google Sheets المستقبلية.
 
-## التخزين
-Google Sheets يخزن بيانات المنصة وروابط الكتب والملفات. ملفات PDF والفيديو نفسها يجب رفعها إلى Google Drive، ثم حفظ رابط المشاركة في سجل الكتاب أو المحتوى.
+## أوراق Google Sheets المقترحة
+Students, Admins, Materials, Lectures, Schedules, Exams, Grades, Attendance, Announcements, Complaints, Settings.
+
+## حدود النسخة الحالية
+هذه نسخة عرض وتجربة وليست نظام إنتاج آمناً. تسجيل الدخول محلي ويمكن تجاوز الحماية من أدوات المتصفح، وكلمات المرور التجريبية محفوظة محلياً. تسجيل الحضور تجريبي ولا يتحقق من الموقع الجغرافي. عند ربط Apps Script يجب نقل التحقق والصلاحيات وكلمات المرور إلى الخادم وعدم الاعتماد على Local Storage.
+
+## نشر GitHub Pages
+من إعدادات المستودع: Settings → Pages → Deploy from a branch → main / root.
