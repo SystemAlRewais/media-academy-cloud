@@ -3,6 +3,7 @@
  * Install: set SPREADSHEET_ID, ADMIN_USERNAME, ADMIN_PASSWORD in Script Properties.
  * Deploy as Web App (execute as you; access: Anyone). Tables are created safely on first request.
  */
+const COHORTS = ["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 const TABLES = {
   Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","cohort","department","status","created_at","updated_at"],
   Admins: ["id","username","full_name","email","password_hash","password_salt","role","status","created_at"],
@@ -10,10 +11,10 @@ const TABLES = {
   Materials: ["id","title","description","course_id","cohort","department","file_id","file_url","mime_type","status","created_at","updated_at"],
   Lectures: ["id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","status","created_at","updated_at"],
   Exams: ["id","title","description","course_id","cohort","start_at","end_at","duration_minutes","status","created_at","updated_at"],
-  Results: ["id","exam_id","student_id","student_code","score","max_score","notes","published","created_at","updated_at"],
-  Attendance: ["id","student_id","student_code","lecture_id","attendance_date","check_in","status","latitude","longitude","notes","created_at"],
+  Results: ["id","exam_id","student_id","student_code","cohort","score","max_score","notes","published","created_at","updated_at"],
+  Attendance: ["id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","status","latitude","longitude","notes","created_at"],
   Announcements: ["id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at"],
-  Complaints: ["id","student_id","student_code","subject","message","reply","status","created_at","updated_at"],
+  Complaints: ["id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at"],
   Settings: ["key","value","updated_at"],
   AuditLog: ["id","actor","action","section","record_id","details","created_at"]
 };
@@ -31,7 +32,7 @@ function doGet(e) {
     const role = m[1], section = m[2];
     const user = authenticate_(p.token);
     if (!user) return out({success:false,message:"انتهت الجلسة أو بيانات الدخول غير صالحة."});
-    if (role === "admin" && user.role !== "admin" && user.role !== "owner") return out({success:false,message:"غير مصرح."});
+    if (role === "admin" && !isOwner_(user)) return out({success:false,message:"الدخول متاح لحساب الإدارة العامة فقط."});
     if (role === "student" && user.role !== "student" && user.role !== "admin" && user.role !== "owner") return out({success:false,message:"غير مصرح."});
     if (section === "home") return out(homeData_(user));
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
@@ -55,7 +56,7 @@ function doPost(e) {
     if (path === "/auth/register" || data.action === "register") return register_(data);
     const user = authenticate_(data.token);
     if (!user) return out({success:false,message:"يلزم تسجيل الدخول مرة أخرى."});
-    if (user.role !== "admin" && user.role !== "owner") return out({success:false,message:"هذه العملية متاحة للإدارة فقط."});
+    if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const action = String(data.action || "");
     const section = String(data.section || path.split("/").pop() || "");
     if (action === "upload") return upload_(data,user);
@@ -117,7 +118,7 @@ function register_(d) {
   return out({success:true,message:"تم إرسال طلب التسجيل إلى الإدارة للمراجعة."});
 }
 
-function createRecord_(section,record,user) {
+function createRecord_(section,record,user,selectedCohort) {
   const sheetName = SECTION_SHEET[section];
   if (section === "settings") {
     const key=String(record.key||"").trim(); if(!key) throw new Error("اسم الإعداد مطلوب.");
@@ -137,7 +138,7 @@ function createRecord_(section,record,user) {
   audit_(user,"create",section,id,obj);
   return {message:"تمت الإضافة بنجاح.",id};
 }
-function updateRecord_(section,id,record,user) {
+function updateRecord_(section,id,record,user,selectedCohort) {
   if (!id) throw new Error("معرف السجل مطلوب.");
   if (section === "settings") {
     const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key"),vc=h.indexOf("value"),uc=h.indexOf("updated_at");
@@ -148,13 +149,13 @@ function updateRecord_(section,id,record,user) {
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
   const idx=headers.indexOf("id"), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
-  const obj={...record,updated_at:new Date().toISOString()};
+  assertRecordCohort_(section, values, headers, row, selectedCohort);\n  const obj={...record,updated_at:new Date().toISOString()};\n  const cohortKey=cohortField_(section);\n  if(cohortKey && selectedCohort) obj[cohortKey]=selectedCohort;
   if(obj.password){const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;}
   headers.forEach((h,c)=>{if(Object.prototype.hasOwnProperty.call(obj,h)) sh.getRange(row+1,c+1).setValue(obj[h]);});
   audit_(user,"update",section,id,obj);
   return {message:"تم تحديث البيانات."};
 }
-function deleteRecord_(section,id,user) {
+function deleteRecord_(section,id,user,selectedCohort) {
   if (!id) throw new Error("معرف السجل مطلوب.");
   if (section === "settings") {
     const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key");
@@ -167,7 +168,7 @@ function deleteRecord_(section,id,user) {
   sh.deleteRow(row+1);audit_(user,"delete",section,id,{});
   return {message:"تم الحذف."};
 }
-function setStudentStatus_(id,status,user) {
+function setStudentStatus_(id,status,user,selectedCohort) {
   const sh=db_().getSheetByName("Students"),v=sh.getDataRange().getValues(),h=v[0].map(String),idc=h.indexOf("id"),sc=h.indexOf("status"),uc=h.indexOf("updated_at");
   const row=v.findIndex((r,i)=>i>0 && String(r[idc])===String(id));
   if(row<1) throw new Error("الطالب غير موجود.");
@@ -208,7 +209,7 @@ function ensureDatabaseSafe_(){
   Object.keys(TABLES).forEach(name=>{
     let sh=ss.getSheetByName(name);
     if(!sh) sh=ss.insertSheet(name);
-    if(sh.getLastRow()===0) sh.getRange(1,1,1,TABLES[name].length).setValues([TABLES[name]]);
+    if(sh.getLastRow()===0) sh.getRange(1,1,1,TABLES[name].length).setValues([TABLES[name]]);\n    else ensureHeadersSafe_(sh,TABLES[name]);
   });
   const props=PropertiesService.getScriptProperties();
   const username=props.getProperty("ADMIN_USERNAME"), password=props.getProperty("ADMIN_PASSWORD");
@@ -220,7 +221,27 @@ function ensureDatabaseSafe_(){
     }
   }
 }
-function readRows_(name) {
+
+function cohortField_(section) {
+  if (section === "announcements") return "target_cohort";
+  if (["students","courses","materials","lectures","schedule","exams","results","attendance","complaints"].includes(section)) return "cohort";
+  return "";
+}
+function ensureHeadersSafe_(sheet, required) {
+  const last = Math.max(sheet.getLastColumn(), 1);
+  const current = sheet.getRange(1,1,1,last).getValues()[0].map(String);
+  const missing = required.filter(h => !current.includes(h));
+  if (missing.length) sheet.getRange(1,last+1,1,missing.length).setValues([missing]);
+}
+function assertRecordCohort_(section, values, headers, rowIndex, selectedCohort) {
+  const field = cohortField_(section);
+  if (!field) return;
+  if (!selectedCohort || selectedCohort === "__all__") throw new Error("اختر فرقة محددة أولاً.");
+  const col = headers.indexOf(field);
+  const actual = col >= 0 ? String(values[rowIndex][col] || "") : "";
+  if (actual !== selectedCohort) throw new Error("لا يمكن الوصول إلى سجل خارج الفرقة المحددة.");
+}
+\nfunction readRows_(name) {
   const sh=db_().getSheetByName(name);if(!sh || sh.getLastRow()<2)return [];
   const v=sh.getDataRange().getValues(),h=v[0].map(String);
   return v.slice(1).filter(r=>r.some(x=>x!=="")).map(r=>{const o={};h.forEach((k,i)=>o[k]=r[i] instanceof Date?r[i].toISOString():r[i]);return o;});
