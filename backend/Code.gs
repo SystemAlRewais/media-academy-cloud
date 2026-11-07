@@ -17,7 +17,7 @@ const TABLES = {
   Enrollments: ['enrollment_id','institution_id','student_id','subject_id','academic_year','status'],
   Content: ['content_id','institution_id','cohort_id','subject_id','title','content_type','file_url','description','created_by','created_at','status'],
   Lectures: ['lecture_id','institution_id','cohort_id','subject_id','title','starts_at','ends_at','location_name','status','created_by'],
-  AttendanceSessions: ['session_id','institution_id','lecture_id','secret_code_hash','latitude','longitude','radius_meters','opens_at','closes_at','status','created_by'],
+  AttendanceSessions: ['session_id','institution_id','lecture_id','location_url','secret_code_hash','latitude','longitude','radius_meters','opens_at','closes_at','status','created_by'],
   Attendance: ['attendance_id','institution_id','session_id','student_id','student_code','checked_at','latitude','longitude','distance_meters','status'],
   Exams: ['exam_id','institution_id','cohort_id','subject_id','title','exam_date','total_marks','status'],
   Grades: ['grade_id','institution_id','student_id','subject_id','exam_id','score','total_marks','published_at'],
@@ -344,12 +344,46 @@ function replyForumPost_(req,user) {
   if (!post || post.institution_id!==user.institution_id || !canAccessRoom_(findById_('ForumRooms','room_id',post.room_id),user) || !String(req.body||'').trim()) throw new Error('POST_NOT_FOUND');
   return saveRow_('ForumReplies',{reply_id:Utilities.getUuid(),post_id:req.post_id,author_id:user.user_id,body:String(req.body).slice(0,3000),created_at:new Date().toISOString(),status:'active'},user,'reply_id');
 }
+function extractMapCoordinates_(url) {
+  const patterns=[
+    /@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/,
+    /[?&](?:q|query|ll|center)=(-?\\d+(?:\\.\\d+)?)(?:%2C|,|%252C)(-?\\d+(?:\\.\\d+)?)/i,
+    /!3d(-?\\d+(?:\\.\\d+)?)!4d(-?\\d+(?:\\.\\d+)?)/,
+    /(-?\\d{1,2}\\.\\d{4,})[, ]+(-?\\d{1,3}\\.\\d{4,})/
+  ];
+  for (const pattern of patterns) {
+    const match=String(url||'').match(pattern);
+    if(match)return {latitude:Number(match[1]),longitude:Number(match[2])};
+  }
+  return null;
+}
+function coordinatesFromMapsUrl_(url) {
+  let current=String(url||'').trim();
+  if(!/^https?:\\/\\//i.test(current))throw new Error('INVALID_MAPS_LINK');
+  for(let i=0;i<5;i++) {
+    const found=extractMapCoordinates_(current);
+    if(found)return found;
+    try {
+      const response=UrlFetchApp.fetch(current,{followRedirects:false,muteHttpExceptions:true});
+      const headers=response.getAllHeaders();
+      const next=headers.Location||headers.location;
+      if(!next)break;
+      current=String(next);
+    } catch(e) { break; }
+  }
+  throw new Error('INVALID_MAPS_LINK');
+}
 function createAttendanceSession_(req,user) {
   const d=Object.assign({},req.data||{});
-  if (!d.lecture_id || !d.code || d.latitude === undefined || d.longitude === undefined || !d.radius_meters) throw new Error('SESSION_FIELDS_REQUIRED');
+  if (!d.lecture_id || !d.code || !d.radius_meters) throw new Error('SESSION_FIELDS_REQUIRED');
   const lecture=findById_('Lectures','lecture_id',d.lecture_id);
   if (!lecture || lecture.institution_id!==user.institution_id) throw new Error('LECTURE_NOT_FOUND');
-  const lat=Number(d.latitude),lon=Number(d.longitude),radius=Number(d.radius_meters);
+  let lat=Number(d.latitude),lon=Number(d.longitude);
+  if(d.location_url) {
+    const coords=coordinatesFromMapsUrl_(d.location_url);
+    lat=coords.latitude;lon=coords.longitude;
+  }
+  const radius=Number(d.radius_meters);
   if (!isFinite(lat)||lat < -90||lat > 90||!isFinite(lon)||lon < -180||lon > 180||!isFinite(radius)||radius < 10||radius > 5000) throw new Error('INVALID_GEOFENCE');
   if (String(d.code).length < 4 || String(d.code).length > 32) throw new Error('INVALID_ATTENDANCE_CODE_LENGTH');
   d.latitude=lat;d.longitude=lon;d.radius_meters=radius;d.created_by=user.user_id;
