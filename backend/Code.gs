@@ -80,6 +80,7 @@ function doPost(e) {
     const action = String(data.action || "");
     const section = String(data.section || path.split("/").pop() || "");
     if (user.role === "student" && action === "submit_complaint") return submitComplaint_(data,user);
+    if (user.role === "student" && action === "checkin") return checkIn_(data,user);
     if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const selectedCohort = String(data.cohort || "").trim();
     if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !COHORTS.includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
@@ -210,6 +211,40 @@ function setStudentStatus_(id,status,user,selectedCohort) {
   if(status==="active" && cohortCol>=0 && !String(v[row][cohortCol]||"").trim()) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
   sh.getRange(row+1,sc+1).setValue(status);if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());
   audit_(user,status,"students",id,{});return {message:status==="active"?"تم اعتماد الطالب.":"تم رفض الطلب."};
+}
+function checkIn_(data,user) {
+  const sessionId=String(data.session_id||"").trim(), code=String(data.access_code||"").trim();
+  const latitude=Number(data.latitude), longitude=Number(data.longitude);
+  if(!sessionId || !code || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude)>90 || Math.abs(longitude)>180) return out({success:false,message:"أدخل كود الجلسة واسمح بتحديد موقعك بدقة."});
+  if(!user.cohort) return out({success:false,message:"لا توجد فرقة دراسية مرتبطة بحسابك."});
+  const sessions=readRows_("AttendanceSessions");
+  const session=sessions.find(x=>String(x.session_id)===sessionId);
+  if(!session) return out({success:false,message:"جلسة الحضور غير موجودة."});
+  if(String(session.cohort)!==String(user.cohort)) return out({success:false,message:"هذه الجلسة ليست مخصصة لفرقتك."});
+  if(String(session.status)!=="active") return out({success:false,message:"جلسة الحضور مغلقة."});
+  const now=Date.now(), opens=new Date(session.opens_at).getTime(), closes=new Date(session.closes_at).getTime();
+  if(!Number.isFinite(opens)||!Number.isFinite(closes)||now<opens||now>closes) return out({success:false,message:"الحضور غير متاح في هذا التوقيت."});
+  if(hash_(code,String(session.code_salt||""))!==String(session.code_hash||"")) return out({success:false,message:"كود الحضور غير صحيح."});
+  const attendance=readRows_("Attendance");
+  if(attendance.some(x=>String(x.session_id)===sessionId && String(x.student_id)===String(user.id))) return out({success:false,message:"تم تسجيل حضورك في هذه الجلسة من قبل."});
+  const distance=distanceMeters_(latitude,longitude,Number(session.latitude),Number(session.longitude));
+  const radius=Number(session.radius_meters);
+  if(!Number.isFinite(distance)||!Number.isFinite(radius)||radius<10||radius>5000) return out({success:false,message:"إعدادات موقع الجلسة غير صالحة. راجع الإدارة."});
+  if(distance>radius) return out({success:false,message:"أنت خارج النطاق المسموح. المسافة الحالية "+Math.round(distance)+" متر، والنطاق "+radius+" متر."});
+  const checkedAt=new Date(), iso=checkedAt.toISOString(), id=Utilities.getUuid();
+  appendObject_("Attendance",{id,attendance_id:id,session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:iso.slice(0,10),check_in:iso.slice(11,19),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
+  audit_(user,"checkin","attendance",id,{session_id:sessionId,distance_meters:Math.round(distance)});
+  return out({success:true,message:"تم تسجيل حضورك بنجاح.",distance_meters:Math.round(distance)});
+}
+function distanceMeters_(lat1,lon1,lat2,lon2) {
+  if(!Number.isFinite(lat2)||!Number.isFinite(lon2)||Math.abs(lat2)>90||Math.abs(lon2)>180) return NaN;
+  const rad=x=>x*Math.PI/180, dLat=rad(lat2-lat1), dLon=rad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
+  return 6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function validMapsUrl_(value) {
+  const url=String(value||"").trim();
+  return /^https:\/\//i.test(url) && /(maps\.app\.goo\.gl|maps\.google\.com|google\.com\/maps)/i.test(url);
 }
 function submitComplaint_(data,user) {
   const subject=String(data.subject||"").trim(), message=String(data.message||"").trim();
