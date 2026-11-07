@@ -1,4 +1,4 @@
-name: Verify application build
+name: Verify Media Academy Cloud
 
 on:
   push:
@@ -7,16 +7,20 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Validate Google Apps Script syntax
+      - name: Check Apps Script syntax
         run: node --check < backend/Code.gs
-      - name: Install dependencies
-        run: npm install
-      - name: Build Vite application
-        run: npm run build
+      - name: Check inline browser JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("index.html").read_text()
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+          assert scripts, "No application script found"
+          Path("/tmp/app.js").write_text("\n".join(scripts))
+          PY
+          node --check /tmp/app.js
