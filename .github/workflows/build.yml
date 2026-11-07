@@ -14,6 +14,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Validate Google Apps Script syntax
+        run: node --check < backend/Code.gs
       - name: Install dependencies
         run: npm install
       - name: Build Vite application
