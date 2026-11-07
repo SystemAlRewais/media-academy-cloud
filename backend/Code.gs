@@ -34,7 +34,7 @@ function doGet(e) {
     if (!user) return out({success:false,message:"انتهت الجلسة أو بيانات الدخول غير صالحة."});
     if (role === "admin" && !isOwner_(user)) return out({success:false,message:"الدخول متاح لحساب الإدارة العامة فقط."});
     if (role === "student" && user.role !== "student" && user.role !== "admin" && user.role !== "owner") return out({success:false,message:"غير مصرح."});
-    if (section === "home") return out(homeData_(user));
+    if (section === "home") return out(homeData_(user, String(p.cohort || "")));
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
@@ -211,10 +211,13 @@ function upload_(d,user) {
   audit_(user,"upload","materials",file.getId(),{name});
   return {message:"تم رفع الملف إلى Google Drive.",fileId:file.getId(),url:file.getUrl()};
 }
-function homeData_(u) {
-  const students=readRows_("Students"),courses=readRows_("Courses"),materials=readRows_("Materials"),lectures=readRows_("Lectures");
-  if(u.role==="student") return {success:true,stats:{"المواد":courses.length,"الملفات":materials.length,"المحاضرات":lectures.length},message:"مرحباً بك في سحابة كلية الإعلام – جامعة الأزهر"};
-  return {success:true,stats:{"الطلاب النشطون":students.filter(x=>x.status==="active").length,"طلبات التسجيل":students.filter(x=>x.status==="pending").length,"المواد":courses.length,"الكتب والملفات":materials.length,"المحاضرات":lectures.length},message:"مرحباً بك في لوحة إدارة الأكاديمية."};
+function homeData_(u, selectedCohort) {
+  let students=readRows_("Students"),courses=readRows_("Courses"),materials=readRows_("Materials"),lectures=readRows_("Lectures"),exams=readRows_("Exams"),announcements=readRows_("Announcements");
+  if(u.role==="student") return {success:true,stats:{"المواد":courses.filter(x=>!x.cohort||x.cohort===u.cohort).length,"الملفات":materials.filter(x=>!x.cohort||x.cohort===u.cohort).length,"المحاضرات":lectures.filter(x=>!x.cohort||x.cohort===u.cohort).length},message:"مرحباً بك في سحابة كلية الإعلام – جامعة الأزهر"};
+  if(selectedCohort && selectedCohort!=="__all__" && selectedCohort!=="__unassigned__") {
+    students=students.filter(x=>String(x.cohort||"")===selectedCohort); courses=courses.filter(x=>String(x.cohort||"")===selectedCohort); materials=materials.filter(x=>String(x.cohort||"")===selectedCohort); lectures=lectures.filter(x=>String(x.cohort||"")===selectedCohort); exams=exams.filter(x=>String(x.cohort||"")===selectedCohort); announcements=announcements.filter(x=>String(x.target_cohort||"")===selectedCohort);
+  } else if(selectedCohort==="__unassigned__") students=students.filter(x=>!String(x.cohort||"").trim());
+  return {success:true,stats:{"الطلاب النشطون":students.filter(x=>x.status==="active").length,"طلبات التسجيل":students.filter(x=>x.status==="pending").length,"المواد":courses.length,"الكتب والملفات":materials.length,"المحاضرات":lectures.length,"الامتحانات":exams.length,"الإعلانات":announcements.length},message:"مرحباً بك في لوحة إدارة الأكاديمية."};
 }
 function authenticate_(token) {
   if(!token) return null;
