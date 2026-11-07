@@ -152,6 +152,49 @@ function setupInitialOwner() {
   PropertiesService.getScriptProperties().deleteProperty('BOOTSTRAP_PASSWORD');
   return 'Initial owner created. Temporary bootstrap password property removed.';
 }
+/** Create the first platform owner and a test student in one run.
+ * Script Properties required:
+ * SPREADSHEET_ID, BOOTSTRAP_EMAIL, BOOTSTRAP_PASSWORD,
+ * BOOTSTRAP_STUDENT_PASSWORD.
+ * Optional: BOOTSTRAP_STUDENT_CODE (defaults to STU001),
+ * BOOTSTRAP_STUDENT_NAME (defaults to طالب تجريبي).
+ * Run once from the Apps Script editor. Passwords are deleted after success.
+ */
+function setupInitialAccounts() {
+  setupDatabase();
+  const email = prop_('BOOTSTRAP_EMAIL').trim().toLowerCase();
+  const ownerPassword = prop_('BOOTSTRAP_PASSWORD');
+  const studentPassword = prop_('BOOTSTRAP_STUDENT_PASSWORD');
+  const studentCode = (prop_('BOOTSTRAP_STUDENT_CODE') || 'STU001').trim();
+  const studentName = prop_('BOOTSTRAP_STUDENT_NAME') || 'طالب تجريبي';
+  if (!email || ownerPassword.length < 12) throw new Error('Set BOOTSTRAP_EMAIL and a 12+ character BOOTSTRAP_PASSWORD first.');
+  if (studentPassword.length < 8) throw new Error('Set BOOTSTRAP_STUDENT_PASSWORD to at least 8 characters.');
+  const ss = db_();
+  const institutions = rows_('Institutions');
+  if (!institutions.some(r => r.institution_id === 'default')) {
+    ss.getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',new Date().toISOString()]);
+  }
+  const users = ss.getSheetByName('Users');
+  let createdOwner = false;
+  let createdStudent = false;
+  if (!findUserByEmail_(email)) {
+    const salt = Utilities.getUuid();
+    users.appendRow([Utilities.getUuid(),'default','','Platform Owner',email,'',hash_(ownerPassword,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
+    createdOwner = true;
+  }
+  if (!rows_('Users').some(r => String(r.student_code || '').toLowerCase() === studentCode.toLowerCase())) {
+    const salt = Utilities.getUuid();
+    users.appendRow([Utilities.getUuid(),'default',studentCode,studentName,'','',hash_(studentPassword,salt),salt,'student','','','active','',new Date().toISOString(),new Date().toISOString()]);
+    createdStudent = true;
+  }
+  const rooms = ss.getSheetByName('ForumRooms');
+  if (rooms.getLastRow() < 2) rooms.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',new Date().toISOString()]);
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty('BOOTSTRAP_PASSWORD');
+  props.deleteProperty('BOOTSTRAP_STUDENT_PASSWORD');
+  return 'Setup complete. Owner created: ' + createdOwner + '. Student created: ' + createdStudent + '. Student code: ' + studentCode + '.';
+}
+
 function login_(req) {
   const identifier = String(req.identifier || req.email || '').trim().toLowerCase();
   const password = String(req.password || '');
