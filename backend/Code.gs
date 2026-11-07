@@ -178,7 +178,7 @@ function saveRow_(table,data,user,idKey) {
   const record = Object.assign({},data);
   const id = record[idKey] || Utilities.getUuid();
   record[idKey] = id;
-  if (TABLES[table].indexOf('institution_id') >= 0) record.institution_id = user.institution_id;
+  if (TABLES[table].indexOf('institution_id') >= 0 && table !== 'Institutions') record.institution_id = user.institution_id;
   const sh = db_().getSheetByName(table);
   const headers = TABLES[table];
   const all = sh.getDataRange().getValues();
@@ -242,7 +242,7 @@ function replyForumPost_(req,user) {
 }
 function createAttendanceSession_(req,user) {
   const d=Object.assign({},req.data||{});
-  if (!d.lecture_id || !d.code || !d.latitude || !d.longitude || !d.radius_meters) throw new Error('SESSION_FIELDS_REQUIRED');
+  if (!d.lecture_id || !d.code || d.latitude === undefined || d.longitude === undefined || !d.radius_meters) throw new Error('SESSION_FIELDS_REQUIRED');
   d.session_id=Utilities.getUuid();
   d.secret_code_hash=hash_(String(d.code),d.session_id);
   delete d.code;
