@@ -212,6 +212,8 @@ function saveStudent_(req,user) {
   requireAdmin_(user);
   const d = Object.assign({},req.data || {});
   if (!d.full_name || !d.student_code) throw new Error('NAME_AND_STUDENT_CODE_REQUIRED');
+  const duplicate=rows_('Users').find(x=>x.institution_id===user.institution_id && x.user_id!==d.user_id && (String(x.student_code).toLowerCase()===String(d.student_code).toLowerCase() || (d.email && String(x.email).toLowerCase()===String(d.email).toLowerCase())));
+  if (duplicate) throw new Error('STUDENT_CODE_OR_EMAIL_EXISTS');
   if (!d.user_id) {
     if (String(d.initial_password || '').length < 8) throw new Error('STUDENT_PASSWORD_TOO_SHORT');
     const salt = Utilities.getUuid();
@@ -274,6 +276,12 @@ function replyForumPost_(req,user) {
 function createAttendanceSession_(req,user) {
   const d=Object.assign({},req.data||{});
   if (!d.lecture_id || !d.code || d.latitude === undefined || d.longitude === undefined || !d.radius_meters) throw new Error('SESSION_FIELDS_REQUIRED');
+  const lecture=findById_('Lectures','lecture_id',d.lecture_id);
+  if (!lecture || lecture.institution_id!==user.institution_id) throw new Error('LECTURE_NOT_FOUND');
+  const lat=Number(d.latitude),lon=Number(d.longitude),radius=Number(d.radius_meters);
+  if (!isFinite(lat)||lat < -90||lat > 90||!isFinite(lon)||lon < -180||lon > 180||!isFinite(radius)||radius < 10||radius > 5000) throw new Error('INVALID_GEOFENCE');
+  if (String(d.code).length < 4 || String(d.code).length > 32) throw new Error('INVALID_ATTENDANCE_CODE_LENGTH');
+  d.latitude=lat;d.longitude=lon;d.radius_meters=radius;d.created_by=user.user_id;
   d.session_id=Utilities.getUuid();
   d.secret_code_hash=hash_(String(d.code),d.session_id);
   delete d.code;
