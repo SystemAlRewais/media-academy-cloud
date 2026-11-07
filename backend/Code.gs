@@ -3,10 +3,8 @@
  * SPREADSHEET_ID = ID of the private Google Sheet
  * BOOTSTRAP_EMAIL = first owner email
  * BOOTSTRAP_PASSWORD = temporary owner password (12+ characters)
- * BOOTSTRAP_STUDENT_PASSWORD = temporary student password (8+ characters)
- * Optional: BOOTSTRAP_STUDENT_CODE and BOOTSTRAP_STUDENT_NAME
- * Run setupInitialAccounts() once from the Apps Script editor.
- * Temporary password properties are deleted after successful setup.
+ * Run setupInitialOwner() once from the Apps Script editor.
+ * The owner creates all student accounts later from the admin panel.
  */
 const TABLES = {
   Institutions: ['institution_id','name','slug','status','logo_url','primary_color','created_at'],
@@ -150,52 +148,23 @@ function setupInitialOwner() {
   const id = Utilities.getUuid();
   sh.appendRow([id,'default','', 'Owner', 'Owner',email,'',hash_(password,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
   db_().getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',new Date().toISOString()]);
-  const rooms = db_().getSheetByName('ForumRooms');
-  if (rooms.getLastRow() < 2) rooms.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',new Date().toISOString()]);
+  const cohortSheet=db_().getSheetByName('Cohorts');
+  const roomSheet=db_().getSheetByName('ForumRooms');
+  const defaults=[
+    ['cohort-1','الفرقة الأولى','1'],
+    ['cohort-2','الفرقة الثانية','2'],
+    ['cohort-3','الفرقة الثالثة','3'],
+    ['cohort-4','الفرقة الرابعة','4']
+  ];
+  defaults.forEach(item=>{
+    if(!findById_('Cohorts','cohort_id',item[0])) {
+      cohortSheet.appendRow([item[0],'default',item[1],item[2],'','active']);
+      roomSheet.appendRow([Utilities.getUuid(),'default',item[0],'منتدى '+item[1],'cohort','active',new Date().toISOString()]);
+    }
+  });
+  if (!rows_('ForumRooms').some(r=>r.institution_id==='default'&&!r.cohort_id)) roomSheet.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',new Date().toISOString()]);
   PropertiesService.getScriptProperties().deleteProperty('BOOTSTRAP_PASSWORD');
   return 'Initial owner created. Temporary bootstrap password property removed.';
-}
-/** Create the first platform owner and a test student in one run.
- * Script Properties required:
- * SPREADSHEET_ID, BOOTSTRAP_EMAIL, BOOTSTRAP_PASSWORD,
- * BOOTSTRAP_STUDENT_PASSWORD.
- * Optional: BOOTSTRAP_STUDENT_CODE (defaults to STU001),
- * BOOTSTRAP_STUDENT_NAME (defaults to طالب تجريبي).
- * Run once from the Apps Script editor. Passwords are deleted after success.
- */
-function setupInitialAccounts() {
-  setupDatabase();
-  const email = prop_('BOOTSTRAP_EMAIL').trim().toLowerCase();
-  const ownerPassword = prop_('BOOTSTRAP_PASSWORD');
-  const studentPassword = prop_('BOOTSTRAP_STUDENT_PASSWORD');
-  const studentCode = (prop_('BOOTSTRAP_STUDENT_CODE') || 'STU001').trim();
-  const studentName = prop_('BOOTSTRAP_STUDENT_NAME') || 'طالب تجريبي';
-  if (!email || ownerPassword.length < 12) throw new Error('Set BOOTSTRAP_EMAIL and a 12+ character BOOTSTRAP_PASSWORD first.');
-  if (studentPassword.length < 8) throw new Error('Set BOOTSTRAP_STUDENT_PASSWORD to at least 8 characters.');
-  const ss = db_();
-  const institutions = rows_('Institutions');
-  if (!institutions.some(r => r.institution_id === 'default')) {
-    ss.getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',new Date().toISOString()]);
-  }
-  const users = ss.getSheetByName('Users');
-  let createdOwner = false;
-  let createdStudent = false;
-  if (!findUserByEmail_(email)) {
-    const salt = Utilities.getUuid();
-    users.appendRow([Utilities.getUuid(),'default','','Owner','Owner',email,'',hash_(ownerPassword,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
-    createdOwner = true;
-  }
-  if (!rows_('Users').some(r => String(r.student_code || '').toLowerCase() === studentCode.toLowerCase())) {
-    const salt = Utilities.getUuid();
-    users.appendRow([Utilities.getUuid(),'default',studentCode,studentCode,studentName,'','',hash_(studentPassword,salt),salt,'student','','','active','',new Date().toISOString(),new Date().toISOString()]);
-    createdStudent = true;
-  }
-  const rooms = ss.getSheetByName('ForumRooms');
-  if (rooms.getLastRow() < 2) rooms.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',new Date().toISOString()]);
-  const props = PropertiesService.getScriptProperties();
-  props.deleteProperty('BOOTSTRAP_PASSWORD');
-  props.deleteProperty('BOOTSTRAP_STUDENT_PASSWORD');
-  return 'Setup complete. Owner created: ' + createdOwner + '. Student created: ' + createdStudent + '. Student code: ' + studentCode + '.';
 }
 
 function login_(req) {
