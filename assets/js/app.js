@@ -9,9 +9,9 @@ const studentNav = [
  ["home","الرئيسية","⌂"],["profile","ملفي الشخصي","◉"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات","▶"],["schedule","جدول المحاضرات","▦"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"]
 ];
 const adminNav = [
- ["home","لوحة التحكم","⌂"],["students","إدارة الطلاب","♙"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات والجداول","▶"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","سجل الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"],["settings","إعدادات النظام والحضور","⚙"]
+ ["home","لوحة التحكم","⌂"],["students","إدارة الطلاب","♙"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات والجداول","▶"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","سجل الحضور","◷"],["attendance_sessions","جلسات الحضور والموقع","◎"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"],["settings","إعدادات النظام والحضور","⚙"]
 ];
-const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
+const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",attendance_sessions:"ATTENDANCE SESSIONS",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
 const COLLEGE_STORAGE_KEY = "media_academy_colleges_v1";
 const DEFAULT_COLLEGE = "كلية الإعلام – جامعة الأزهر";
 function readCollegeSettings(){try{const saved=JSON.parse(localStorage.getItem(COLLEGE_STORAGE_KEY)||"null");if(saved&&Array.isArray(saved.colleges)&&saved.colleges.length)return {colleges:saved.colleges.filter(x=>typeof x==="string"&&x.trim()),active:saved.active||saved.colleges[0]};}catch{}return {colleges:[DEFAULT_COLLEGE],active:DEFAULT_COLLEGE}}
@@ -130,6 +130,7 @@ function fieldDefs(section){
  lectures:[["title","عنوان المحاضرة"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["teacher","المدرس"],["lecture_date","التاريخ","date"],["start_time","من الساعة","time"],["end_time","إلى الساعة","time"],["room","القاعة"],["meeting_url","رابط المحاضرة","url"],["status","الحالة","select",["active","inactive"]]],
  exams:[["title","اسم الامتحان"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["start_at","موعد البداية","datetime-local"],["end_at","موعد النهاية","datetime-local"],["duration_minutes","المدة بالدقائق","number"],["status","الحالة","select",["draft","published","closed"]]],
  results:[["exam_id","معرّف الامتحان"],["student_id","معرّف الطالب"],["student_code","كود الطالب"],["cohort","الفرقة"],["score","الدرجة","number"],["max_score","النهاية العظمى","number"],["notes","ملاحظات","textarea"],["published","منشور","select",["true","false"]]],
+ attendance_sessions:[["title","اسم جلسة الحضور"],["lecture_id","معرّف المحاضرة"],["location_url","رابط موقع Google Maps","url"],["latitude","خط العرض","number"],["longitude","خط الطول","number"],["radius_meters","النطاق بالمتر","number"],["opens_at","بداية الحضور","datetime-local"],["closes_at","نهاية الحضور","datetime-local"],["access_code","كود الحضور","password"],["status","الحالة","select",["active","closed","draft"]]],
  attendance:[["student_id","معرّف الطالب"],["student_code","كود الطالب"],["lecture_id","معرّف المحاضرة"],["attendance_date","التاريخ","date"],["check_in","وقت الحضور","time"],["status","الحالة","select",["present","absent","late"]],["notes","ملاحظات","textarea"]],
  announcements:[["title","عنوان الإعلان"],["body","نص الإعلان","textarea"],["target_cohort","الفرقة المستهدفة","select",["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"]],["status","الحالة","select",["draft","published"]],["publish_at","موعد النشر","datetime-local"],["expire_at","انتهاء الإعلان","datetime-local"]],
  complaints:[["subject","موضوع الشكوى"],["message","نص الشكوى","textarea"],["reply","رد الإدارة","textarea"],["status","الحالة","select",["new","in_progress","resolved","archived"]]],
@@ -194,7 +195,7 @@ async function mutateRecord(section,action,id,record){
 async function saveRecord(e){
  e.preventDefault();const form=e.currentTarget,section=form.dataset.section,id=form.dataset.id||"",record={};
  fieldDefs(section).forEach(f=>{const el=form.elements[f.name];if(el&&el.value!==""&&!(f.name==="password"&&!el.value))record[f.name]=el.value});
- if(["students","courses","materials","lectures","exams","results","attendance","complaints"].includes(section)&&selectedCohort!=="__unassigned__")record.cohort=selectedCohort;
+ if(["students","courses","materials","lectures","exams","results","attendance","attendance_sessions","complaints"].includes(section)&&selectedCohort!=="__unassigned__")record.cohort=selectedCohort;
  if(section==="announcements")record.target_cohort=selectedCohort;
  const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
  try{
