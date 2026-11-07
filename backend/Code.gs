@@ -8,7 +8,7 @@ const TABLES = {
   Admins: ["id","username","full_name","email","password_hash","password_salt","role","status","created_at"],
   Courses: ["id","title","description","cohort","department","teacher","status","sort_order","created_at","updated_at"],
   Materials: ["id","title","description","course_id","cohort","department","file_id","file_url","mime_type","status","created_at","updated_at"],
-  Lectures: ["id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","status","created_at","updated_at"],
+  Lectures: ["id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","status","created_at","updated_at"],
   Exams: ["id","title","description","course_id","cohort","start_at","end_at","duration_minutes","status","created_at","updated_at"],
   Results: ["id","exam_id","student_id","student_code","score","max_score","notes","published","created_at","updated_at"],
   Attendance: ["id","student_id","student_code","lecture_id","attendance_date","check_in","status","latitude","longitude","notes","created_at"],
