@@ -113,7 +113,7 @@ function dispatch_(action, req, user) {
     case 'saveGrade': requireAdmin_(user); return saveGrade_(req,user);
     case 'listTickets': return listRows_('SupportTickets', user, r => isAdmin_(user) || r.student_id === user.user_id);
     case 'createTicket': return createTicket_(req, user);
-    case 'updateTicket': requireAdmin_(user); return updateRow_('SupportTickets', req.data, user, 'ticket_id');
+    case 'updateTicket': return updateTicket_(req,user);
     case 'listInstitutions': requireRole_(user, ['owner','super_admin']); return listRows_('Institutions', user);
     case 'listManagers': requireRole_(user, ['owner','super_admin']); return {ok:true,data:rows_('Users').filter(r=>r.role!=='student'&&r.role!=='owner').map(safeUser_)};
     case 'saveManager': return saveManager_(req,user);
@@ -506,21 +506,37 @@ function distanceMeters_(lat1,lon1,lat2,lon2) {
   return 6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 function saveGrade_(req,user) {
+  requireAdmin_(user);
   const d=Object.assign({},req.data||{});
   const student=findById_('Users','user_id',d.student_id);
   if(!student || student.institution_id!==user.institution_id || student.role!=='student') throw new Error('STUDENT_NOT_FOUND');
+  let subject=null,exam=null;
   if(d.subject_id) {
-    const subject=findById_('Subjects','subject_id',d.subject_id);
+    subject=findById_('Subjects','subject_id',d.subject_id);
     if(!subject || subject.institution_id!==user.institution_id) throw new Error('SUBJECT_NOT_FOUND');
+    if(subject.cohort_id && subject.cohort_id!==student.cohort_id) throw new Error('SUBJECT_COHORT_MISMATCH');
   }
   if(d.exam_id) {
-    const exam=findById_('Exams','exam_id',d.exam_id);
+    exam=findById_('Exams','exam_id',d.exam_id);
     if(!exam || exam.institution_id!==user.institution_id) throw new Error('EXAM_NOT_FOUND');
+    if(exam.cohort_id && exam.cohort_id!==student.cohort_id) throw new Error('EXAM_COHORT_MISMATCH');
+    if(exam.subject_id && d.subject_id && exam.subject_id!==d.subject_id) throw new Error('EXAM_SUBJECT_MISMATCH');
+    if(exam.subject_id && !d.subject_id) d.subject_id=exam.subject_id;
+    d.total_marks=exam.total_marks;
   }
   const score=Number(d.score),total=Number(d.total_marks);
   if(!isFinite(score)||!isFinite(total)||total<=0||score<0||score>total) throw new Error('INVALID_GRADE');
   d.published_at=d.published_at||new Date().toISOString();
   return saveRow_('Grades',d,user,'grade_id');
+}
+function updateTicket_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  const ticket=findById_('SupportTickets','ticket_id',d.ticket_id);
+  if(!ticket || ticket.institution_id!==user.institution_id) throw new Error('TICKET_NOT_FOUND');
+  const allowed=['new','in_progress','resolved','closed'];
+  if(allowed.indexOf(String(d.status||''))<0) throw new Error('INVALID_TICKET_STATUS');
+  return updateRow_('SupportTickets',{ticket_id:ticket.ticket_id,status:d.status,assigned_to:String(d.assigned_to||'')},user,'ticket_id');
 }
 function createTicket_(req,user) {
   if (!req.subject || !req.body) throw new Error('SUBJECT_AND_BODY_REQUIRED');
