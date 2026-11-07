@@ -1,7 +1,7 @@
 /**
  * Media Academy Cloud - Google Apps Script API
  * Install: set SPREADSHEET_ID, ADMIN_USERNAME, ADMIN_PASSWORD in Script Properties.
- * Run initializeDatabase(), then deploy as Web App (execute as you; access: Anyone).
+ * Deploy as Web App (execute as you; access: Anyone). Tables are created safely on first request.
  */
 const TABLES = {
   Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","cohort","department","status","created_at","updated_at"],
@@ -22,6 +22,7 @@ const SECTION_SHEET = {students:"Students",courses:"Courses",materials:"Material
 
 function doGet(e) {
   try {
+    ensureDatabaseSafe_();
     const p = (e && e.parameter) || {};
     const path = String(p.path || "");
     if (!path) return out({success:true,message:"Media Academy Cloud API is active."});
@@ -40,13 +41,14 @@ function doGet(e) {
       if (section === "results" || section === "attendance" || section === "complaints") return String(r.student_id) === String(user.id);
       return (!r.cohort || !user.cohort || String(r.cohort) === String(user.cohort)) && (!r.department || !user.department || String(r.department) === String(user.department)) && String(r.status || "active") === "active";
     });
-    if (section === "settings" && user.role !== "owner") rows = rows.filter(r => !/^admin_/i.test(String(r.key)));
+    if (section === "settings" && !isOwner_(user)) rows = rows.filter(r => !/^admin_/i.test(String(r.key)));
     return out({success:true,items:rows});
   } catch(err) { return out({success:false,message:String(err)}); }
 }
 
 function doPost(e) {
   try {
+    ensureDatabaseSafe_();
     const data = JSON.parse((e && e.postData && e.postData.contents) || "{}");
     const path = String(data.path || "");
     if (path === "/auth/login" || data.action === "login") return login_(data);
@@ -57,7 +59,7 @@ function doPost(e) {
     const action = String(data.action || "");
     const section = String(data.section || path.split("/").pop() || "");
     if (action === "upload") return upload_(data,user);
-    if (!SECTION_SHEET[section] || ["settings"].includes(section) && user.role !== "owner") return out({success:false,message:"قسم غير صالح أو لا تملك صلاحية إدارته."});
+    if (!SECTION_SHEET[section] || ["settings"].includes(section) && !isOwner_(user)) return out({success:false,message:"قسم غير صالح أو لا تملك صلاحية إدارته."});
     let result;
     if (action === "create") result = createRecord_(section,data.record || {},user);
     else if (action === "update") result = updateRecord_(section,data.id,data.record || {},user);
@@ -117,6 +119,13 @@ function register_(d) {
 
 function createRecord_(section,record,user) {
   const sheetName = SECTION_SHEET[section];
+  if (section === "settings") {
+    const key=String(record.key||"").trim(); if(!key) throw new Error("اسم الإعداد مطلوب.");
+    const sh=db_().getSheetByName("Settings"), rows=readRows_("Settings");
+    if(rows.some(r=>String(r.key)===key)) throw new Error("اسم الإعداد موجود بالفعل.");
+    appendObject_("Settings",{key,value:String(record.value||""),updated_at:new Date().toISOString()});
+    audit_(user,"create",section,key,record); return {message:"تمت إضافة الإعداد.",id:key};
+  }
   const id = Utilities.getUuid();
   const obj = {...record,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   if (section === "students") {
@@ -130,6 +139,12 @@ function createRecord_(section,record,user) {
 }
 function updateRecord_(section,id,record,user) {
   if (!id) throw new Error("معرف السجل مطلوب.");
+  if (section === "settings") {
+    const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key"),vc=h.indexOf("value"),uc=h.indexOf("updated_at");
+    const row=v.findIndex((r,i)=>i>0&&String(r[kc])===String(id)); if(row<1) throw new Error("الإعداد غير موجود.");
+    if(vc>=0)sh.getRange(row+1,vc+1).setValue(record.value===undefined?"":record.value); if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());
+    audit_(user,"update",section,id,record); return {message:"تم تحديث الإعداد."};
+  }
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
   const idx=headers.indexOf("id"), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
@@ -141,6 +156,11 @@ function updateRecord_(section,id,record,user) {
 }
 function deleteRecord_(section,id,user) {
   if (!id) throw new Error("معرف السجل مطلوب.");
+  if (section === "settings") {
+    const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key");
+    const row=v.findIndex((r,i)=>i>0&&String(r[kc])===String(id)); if(row<1) throw new Error("الإعداد غير موجود.");
+    sh.deleteRow(row+1); audit_(user,"delete",section,id,{}); return {message:"تم حذف الإعداد."};
+  }
   const sh=db_().getSheetByName(SECTION_SHEET[section]),v=sh.getDataRange().getValues(),headers=v[0].map(String),idx=headers.indexOf("id");
   const row=v.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
@@ -176,7 +196,29 @@ function authenticate_(token) {
   return JSON.parse(s);
 }
 function safeUser_(u) {
-  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:u.role || "student",cohort:u.cohort || "",department:u.department || ""};
+  const owner = u.role === "owner" || u.is_owner === true;
+  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:owner?"admin":(u.role || "student"),is_owner:owner,cohort:u.cohort || "",department:u.department || ""};
+}
+function isOwner_(u){ return !!u && (u.role === "owner" || u.is_owner === true); }
+
+// Safe lazy setup: creates only missing tabs or headers in completely empty tabs.
+// It never clears, renames, or overwrites existing data.
+function ensureDatabaseSafe_(){
+  const ss=db_();
+  Object.keys(TABLES).forEach(name=>{
+    let sh=ss.getSheetByName(name);
+    if(!sh) sh=ss.insertSheet(name);
+    if(sh.getLastRow()===0) sh.getRange(1,1,1,TABLES[name].length).setValues([TABLES[name]]);
+  });
+  const props=PropertiesService.getScriptProperties();
+  const username=props.getProperty("ADMIN_USERNAME"), password=props.getProperty("ADMIN_PASSWORD");
+  if(username && password){
+    const exists=readRows_("Admins").some(r=>String(r.username||"").toLowerCase()===username.toLowerCase());
+    if(!exists){
+      const salt=Utilities.getUuid();
+      appendObject_("Admins",{id:Utilities.getUuid(),username,full_name:"مدير النظام",email:"",password_hash:hash_(password,salt),password_salt:salt,role:"owner",status:"active",created_at:new Date().toISOString()});
+    }
+  }
 }
 function readRows_(name) {
   const sh=db_().getSheetByName(name);if(!sh || sh.getLastRow()<2)return [];
