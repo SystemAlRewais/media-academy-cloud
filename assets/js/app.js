@@ -12,14 +12,35 @@ const adminNav = [
  ["home","لوحة التحكم","⌂"],["students","إدارة الطلاب","♙"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات والجداول","▶"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","سجل الحضور","◷"],["attendance_sessions","جلسات الحضور والموقع","◎"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"],["settings","إعدادات النظام والحضور","⚙"]
 ];
 const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",attendance_sessions:"ATTENDANCE SESSIONS",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
-const COLLEGE_STORAGE_KEY = "media_academy_colleges_v1";
 const DEFAULT_COLLEGE = "كلية الإعلام – جامعة الأزهر";
-function readCollegeSettings(){try{const saved=JSON.parse(localStorage.getItem(COLLEGE_STORAGE_KEY)||"null");if(saved&&Array.isArray(saved.colleges)&&saved.colleges.length)return {colleges:saved.colleges.filter(x=>typeof x==="string"&&x.trim()),active:saved.active||saved.colleges[0]};}catch{}return {colleges:[DEFAULT_COLLEGE],active:DEFAULT_COLLEGE}}
-let collegeSettings=readCollegeSettings();
-function saveCollegeSettings(){localStorage.setItem(COLLEGE_STORAGE_KEY,JSON.stringify(collegeSettings));renderCollegeSettings();applyCollegeBranding()}
+let collegeSettings={colleges:[DEFAULT_COLLEGE],active:DEFAULT_COLLEGE};
+async function loadCollegeSettings(){
+ if(!currentUser||currentUser.role!=="admin")throw new Error("إعدادات الكليات متاحة للإدارة العامة فقط.");
+ const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
+ const values=Object.fromEntries(rows.map(x=>[String(x.key),String(x.value||"")]));
+ let colleges;try{colleges=JSON.parse(values.college_list||"[]")}catch{colleges=[]}
+ if(!Array.isArray(colleges)||!colleges.length)colleges=[DEFAULT_COLLEGE];
+ colleges=colleges.filter(x=>typeof x==="string"&&x.trim());
+ if(!colleges.length)colleges=[DEFAULT_COLLEGE];
+ collegeSettings={colleges,active:colleges.includes(values.active_college)?values.active_college:colleges[0]};
+ renderCollegeSettings();applyCollegeBranding();
+}
+async function persistCollegeSettings(){
+ const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
+ const values={college_list:JSON.stringify(collegeSettings.colleges),active_college:collegeSettings.active};
+ for(const [key,value] of Object.entries(values)){
+  const existing=rows.find(x=>String(x.key)===key);
+  await mutateRecord("settings",existing?"update":"create",key,{value});
+ }
+}
+async function saveCollegeSettings(){
+ const note=$("collegeSettingsNote");
+ try{if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=collegeSettings.colleges[0];await persistCollegeSettings();renderCollegeSettings();applyCollegeBranding();if(note)note.textContent="تم حفظ الإعدادات في قاعدة البيانات السحابية.";}
+ catch(err){if(note)note.textContent="تعذر الحفظ: "+err.message;showToast("لم يتم حفظ إعدادات الكليات.");try{await loadCollegeSettings()}catch{}}
+}
 function applyCollegeBranding(){const el=$("collegeHeaderName");if(el)el.textContent=collegeSettings.active;const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=collegeSettings.active;document.title="Media Academy | "+collegeSettings.active}
 function renderCollegeSettings(){const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;select.innerHTML=collegeSettings.colleges.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join("");select.value=collegeSettings.active;list.innerHTML=collegeSettings.colleges.map(name=>'<div class="college-list-item"><span>'+escapeHtml(name)+'</span>'+(collegeSettings.colleges.length>1?'<button type="button" data-remove-college="'+encodeURIComponent(name)+'" aria-label="حذف '+escapeHtml(name)+'">حذف</button>':'<small>الكلية الافتراضية</small>')+'</div>').join("");}
-function openCollegeSettings(){renderCollegeSettings();$("collegeSettingsModal").classList.remove("hidden")}
+async function openCollegeSettings(){try{await loadCollegeSettings();$("collegeSettingsModal").classList.remove("hidden")}catch(err){showToast(err.message)}}
 function closeCollegeSettings(){$("collegeSettingsModal").classList.add("hidden")}
 function message(id,text,success=false){const el=$(id);if(!el)return;el.textContent=text;el.classList.toggle("success",success)}
 function setBusy(button,busy,label){button.disabled=busy;button.querySelector("span").textContent=busy?"جارٍ التنفيذ...":label}
@@ -102,7 +123,7 @@ function openWorkspace(){
  $("workspaceLabel").textContent=currentUser.role==="admin"?"لوحة إدارة الأكاديمية":"مساحة الطالب";
  $("welcomeName").textContent="مرحباً، "+(currentUser.name||currentUser.fullName||"بك");
  $("workspaceDescription").textContent=currentUser.role==="admin"?"إدارة الأكاديمية ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات الأكاديمية.";
- $("sidebarRole").textContent=currentUser.role==="admin"?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";
+ $("sidebarRole").textContent=currentUser.role==="admin"?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";\n const collegeButton=$("openCollegeSettings");if(collegeButton)collegeButton.classList.toggle("hidden",currentUser.role!=="admin");
  const cohortControl=$("cohortSelector");
  if(cohortControl){cohortControl.classList.toggle("hidden",currentUser.role!=="admin");cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
@@ -250,7 +271,7 @@ async function saveRecord(e){
 }
 const cohortSelector=$("cohortSelector");
 if(cohortSelector){cohortSelector.addEventListener("change",()=>{selectedCohort=cohortSelector.value;sessionStorage.setItem("ma_admin_cohort",selectedCohort);loadSection(activeSection);});}
-$("logoutButton").addEventListener("click",()=>{token=null;currentUser=null;sessionStorage.removeItem("ma_session");$("appPage").classList.add("hidden");$("authPage").classList.remove("hidden");$("loginForm").reset();message("loginMessage","");selectRole("student");window.scrollTo({top:0,behavior:"smooth"})});
+$("logoutButton").addEventListener("click",()=>{token=null;currentUser=null;$("openCollegeSettings").classList.add("hidden");sessionStorage.removeItem("ma_session");$("appPage").classList.add("hidden");$("authPage").classList.remove("hidden");$("loginForm").reset();message("loginMessage","");selectRole("student");window.scrollTo({top:0,behavior:"smooth"})});
 const saved=sessionStorage.getItem("ma_session");
 if(saved){try{const session=JSON.parse(saved);if(session.token&&session.user){token=session.token;currentUser=session.user;openWorkspace()}}catch{sessionStorage.removeItem("ma_session")}}
 })();
