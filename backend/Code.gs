@@ -183,7 +183,8 @@ function adminPinLogin_(req) {
   const attempts=Number(cache.get(key)||0);
   if(attempts>=5) throw new Error('TOO_MANY_ATTEMPTS');
   const pin=String((req.data&&req.data.pin)||req.pin||'');
-  if(pin!=='44554455') {
+  const pinSalt=prop_('ADMIN_PIN_SALT'), pinHash=prop_('ADMIN_PIN_HASH');
+  if(!pinSalt || !pinHash || hash_(pin,pinSalt)!==pinHash) {
     cache.put(key,String(attempts+1),900);
     throw new Error('INVALID_ADMIN_PIN');
   }
