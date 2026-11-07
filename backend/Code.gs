@@ -87,15 +87,15 @@ function dispatch_(action, req, user) {
     case 'listCohorts': return listRows_('Cohorts', user, r => isAdmin_(user) || r.cohort_id === user.cohort_id);
     case 'saveCohort': return saveCohort_(req,user);
     case 'listSubjects': return listRows_('Subjects', user, r => isAdmin_(user) || !r.cohort_id || r.cohort_id === user.cohort_id);
-    case 'saveSubject': return saveRow_('Subjects',req.data,user,'subject_id');
+    case 'saveSubject': return saveSubject_(req,user);
     case 'listLectures': return listRows_('Lectures',user);
-    case 'saveLecture': return saveRow_('Lectures',req.data,user,'lecture_id');
-    case 'saveForumRoom': return saveRow_('ForumRooms',req.data,user,'room_id');
+    case 'saveLecture': return saveLecture_(req,user);
+    case 'saveForumRoom': return saveForumRoom_(req,user);
     case 'listAttendanceSessions': return listRows_('AttendanceSessions',user);
     case 'listContent': return listRows_('Content', user, r => !r.cohort_id || r.cohort_id === user.cohort_id || isAdmin_(user));
-    case 'saveContent': return saveRow_('Content', req.data, user, 'content_id');
+    case 'saveContent': return saveContent_(req,user);
     case 'listAnnouncements': return listRows_('Announcements', user, r => !r.cohort_id || r.cohort_id === user.cohort_id || isAdmin_(user));
-    case 'saveAnnouncement': return saveRow_('Announcements', req.data, user, 'announcement_id');
+    case 'saveAnnouncement': return saveAnnouncement_(req,user);
     case 'studentProfile': return studentProfile_(req.student_id || user.user_id, user);
     case 'disciplineHistory': return disciplineHistory_(req.student_id || user.user_id, user);
     case 'recordDiscipline': requireAdmin_(user); return saveRow_('Discipline', req.data, user, 'event_id');
@@ -109,7 +109,7 @@ function dispatch_(action, req, user) {
     case 'checkIn': return checkIn_(req, user);
     case 'listGrades': return listRows_('Grades', user, r => isAdmin_(user) || r.student_id === user.user_id);
     case 'listExams': requireAdmin_(user); return listRows_('Exams',user);
-    case 'saveExam': requireAdmin_(user); return saveRow_('Exams',req.data,user,'exam_id');
+    case 'saveExam': return saveExam_(req,user);
     case 'saveGrade': requireAdmin_(user); return saveGrade_(req,user);
     case 'listTickets': return listRows_('SupportTickets', user, r => isAdmin_(user) || r.student_id === user.user_id);
     case 'createTicket': return createTicket_(req, user);
@@ -236,6 +236,71 @@ function saveRow_(table,data,user,idKey) {
   return {ok:true,id:id};
 }
 function updateRow_(table,data,user,idKey) { return saveRow_(table,data,user,idKey); }
+function activeCohort_(cohortId,user) {
+  if(!cohortId)return null;
+  const cohort=findById_('Cohorts','cohort_id',cohortId);
+  if(!cohort||cohort.institution_id!==user.institution_id||cohort.status!=='active')throw new Error('INVALID_COHORT');
+  return cohort;
+}
+function saveSubject_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  if(!d.name||!d.code)throw new Error('SUBJECT_NAME_AND_CODE_REQUIRED');
+  if(d.cohort_id)activeCohort_(d.cohort_id,user);
+  return saveRow_('Subjects',d,user,'subject_id');
+}
+function saveLecture_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  if(!d.title||!d.cohort_id)throw new Error('LECTURE_TITLE_AND_COHORT_REQUIRED');
+  activeCohort_(d.cohort_id,user);
+  if(d.subject_id) {
+    const subject=findById_('Subjects','subject_id',d.subject_id);
+    if(!subject||subject.institution_id!==user.institution_id)throw new Error('SUBJECT_NOT_FOUND');
+    if(subject.cohort_id&&subject.cohort_id!==d.cohort_id)throw new Error('SUBJECT_COHORT_MISMATCH');
+  }
+  return saveRow_('Lectures',d,user,'lecture_id');
+}
+function saveContent_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  if(!d.title||!d.file_url)throw new Error('CONTENT_TITLE_AND_URL_REQUIRED');
+  if(d.cohort_id)activeCohort_(d.cohort_id,user);
+  if(d.subject_id) {
+    const subject=findById_('Subjects','subject_id',d.subject_id);
+    if(!subject||subject.institution_id!==user.institution_id)throw new Error('SUBJECT_NOT_FOUND');
+  }
+  return saveRow_('Content',d,user,'content_id');
+}
+function saveAnnouncement_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  if(!d.title||!d.body)throw new Error('ANNOUNCEMENT_TITLE_AND_BODY_REQUIRED');
+  if(d.cohort_id)activeCohort_(d.cohort_id,user);
+  return saveRow_('Announcements',d,user,'announcement_id');
+}
+function saveForumRoom_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  if(!d.name)throw new Error('FORUM_NAME_REQUIRED');
+  if(d.cohort_id)activeCohort_(d.cohort_id,user);
+  d.status=d.status||'active';
+  return saveRow_('ForumRooms',d,user,'room_id');
+}
+function saveExam_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  if(!d.title||!d.cohort_id||!d.total_marks)throw new Error('EXAM_FIELDS_REQUIRED');
+  activeCohort_(d.cohort_id,user);
+  if(d.subject_id) {
+    const subject=findById_('Subjects','subject_id',d.subject_id);
+    if(!subject||subject.institution_id!==user.institution_id)throw new Error('SUBJECT_NOT_FOUND');
+    if(subject.cohort_id&&subject.cohort_id!==d.cohort_id)throw new Error('SUBJECT_COHORT_MISMATCH');
+  }
+  const total=Number(d.total_marks);
+  if(!isFinite(total)||total<=0)throw new Error('INVALID_TOTAL_MARKS');
+  return saveRow_('Exams',d,user,'exam_id');
+}
 function saveManager_(req,user) {
   requireRole_(user,['owner','super_admin']);
   const d=Object.assign({},req.data||{});
