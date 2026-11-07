@@ -103,6 +103,7 @@ function dispatch_(action, req, user) {
     case 'createForumPost': return createForumPost_(req, user);
     case 'replyForumPost': return replyForumPost_(req, user);
     case 'listAttendance': return listRows_('Attendance', user, r => isAdmin_(user) || r.student_id === user.user_id);
+    case 'openAttendanceSessions': return openAttendanceSessions_(user);
     case 'createAttendanceSession': requireAdmin_(user); return createAttendanceSession_(req,user);
     case 'checkIn': return checkIn_(req, user);
     case 'listGrades': return listRows_('Grades', user, r => isAdmin_(user) || r.student_id === user.user_id);
@@ -287,6 +288,11 @@ function createAttendanceSession_(req,user) {
   delete d.code;
   d.status='open';
   return saveRow_('AttendanceSessions',d,user,'session_id');
+}
+function openAttendanceSessions_(user) {
+  const now=Date.now();
+  const data=rows_('AttendanceSessions').filter(s=>s.institution_id===user.institution_id && s.status==='open' && (!s.opens_at || now>=new Date(s.opens_at).getTime()) && (!s.closes_at || now<=new Date(s.closes_at).getTime())).map(s=>{const l=findById_('Lectures','lecture_id',s.lecture_id);return {session_id:s.session_id,lecture_title:l?l.title:'محاضرة',opens_at:s.opens_at,closes_at:s.closes_at};});
+  return {ok:true,data:data};
 }
 function checkIn_(req,user) {
   const session = findById_('AttendanceSessions','session_id',req.session_id);
