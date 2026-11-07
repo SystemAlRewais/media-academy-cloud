@@ -253,7 +253,9 @@ function saveStudent_(req,user) {
   const d = Object.assign({},req.data || {});
   d.full_name = String(d.full_name || '').trim();
   d.student_code = String(d.student_code || '').trim();
-  if (!d.full_name || !d.student_code) throw new Error('NAME_AND_STUDENT_CODE_REQUIRED');
+  if (!d.full_name || !d.student_code || !d.cohort_id) throw new Error('NAME_CODE_AND_COHORT_REQUIRED');
+  const cohort=findById_('Cohorts','cohort_id',d.cohort_id);
+  if(!cohort || cohort.institution_id!==user.institution_id || cohort.status!=='active') throw new Error('INVALID_STUDENT_COHORT');
   const duplicate=rows_('Users').find(x=>x.institution_id===user.institution_id && x.user_id!==d.user_id && (String(x.student_code||'').toLowerCase()===d.student_code.toLowerCase() || (d.email && String(x.email||'').toLowerCase()===String(d.email).trim().toLowerCase())));
   if (duplicate) throw new Error('STUDENT_CODE_OR_EMAIL_EXISTS');
   if (!d.user_id) {
