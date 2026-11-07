@@ -158,7 +158,7 @@ function bootstrapOwner_(req) {
     const email=String(d.email||'').trim().toLowerCase();
     const password=String(d.password||'');
     if(name.length<2) throw new Error('OWNER_NAME_REQUIRED');
-    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) throw new Error('INVALID_OWNER_EMAIL');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('INVALID_OWNER_EMAIL');
     if(password.length<12) throw new Error('OWNER_PASSWORD_TOO_SHORT');
     if(findUserByEmail_(email)) throw new Error('EMAIL_EXISTS');
     const now=new Date().toISOString(), salt=Utilities.getUuid(), id=Utilities.getUuid();
