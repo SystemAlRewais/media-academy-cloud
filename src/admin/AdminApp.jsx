@@ -16,7 +16,7 @@ export default function AdminApp({onExit}) {
     try {
       if(next==='dashboard'){const r=await api('dashboard');setSummary(r.summary);setRows([]);}
       else {
-        const map={students:'listStudents',cohorts:'listCohorts',content:'listContent',attendance:'listAttendance',discipline:'disciplineHistory',announcements:'listAnnouncements',forum:'forumRooms',tickets:'listTickets',settings:'auditLog'};
+        const map={students:'listStudents',cohorts:'listCohorts',content:'listContent',attendance:'listAttendance',discipline:'listDiscipline',announcements:'listAnnouncements',forum:'listForumPosts',tickets:'listTickets',settings:'auditLog'};
         const r=await api(map[next]||'dashboard');setRows(r.data||[]);
       }
     } catch(e){setError(errorText(e));}
