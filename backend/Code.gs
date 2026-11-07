@@ -1,9 +1,12 @@
 /** Media Academy Cloud — Google Apps Script backend.
- * Set Script Properties before deployment:
+ * Configure Script Properties before setup:
  * SPREADSHEET_ID = ID of the private Google Sheet
  * BOOTSTRAP_EMAIL = first owner email
- * BOOTSTRAP_PASSWORD = temporary strong password (remove after setup)
- * Then run setupInitialOwner() once from the Apps Script editor.
+ * BOOTSTRAP_PASSWORD = temporary owner password (12+ characters)
+ * BOOTSTRAP_STUDENT_PASSWORD = temporary student password (8+ characters)
+ * Optional: BOOTSTRAP_STUDENT_CODE and BOOTSTRAP_STUDENT_NAME
+ * Run setupInitialAccounts() once from the Apps Script editor.
+ * Temporary password properties are deleted after successful setup.
  */
 const TABLES = {
   Institutions: ['institution_id','name','slug','status','logo_url','primary_color','created_at'],
