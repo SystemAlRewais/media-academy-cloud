@@ -103,7 +103,14 @@ function list_(entity,u){
 }
 function save_(entity,record,u){
   if(!isAdmin_(u))throw new Error('ADMIN_ONLY');
-  if(!TABLES[entity]||['AuditLog','Settings'].indexOf(entity)>=0)throw new Error('INVALID_ENTITY');
+  if(!TABLES[entity]||entity==='AuditLog')throw new Error('INVALID_ENTITY');
+  if(entity==='Settings'){
+    var key=String(record.key||'').trim();if(!key)throw new Error('SETTING_KEY_REQUIRED');
+    var settingsSheet=db_().getSheetByName('Settings'),settings=rows_('Settings'),found=settings.find(function(x){return x.key===key;});
+    var settingRow=found?settings.findIndex(function(x){return x.key===key;})+2:settingsSheet.getLastRow()+1;
+    settingsSheet.getRange(settingRow,1,1,3).setValues([[key,String(record.value||''),new Date().toISOString()]]);
+    audit_(u,found?'UPDATE':'CREATE','Settings',key,{});return {ok:true,id:key};
+  }
   var headers=TABLES[entity],idKey=ID_KEYS[entity],id=record[idKey]||Utilities.getUuid(),sh=db_().getSheetByName(entity),all=sh.getDataRange().getValues(),idx=headers.indexOf(idKey),rowNum=-1;
   for(var i=1;i<all.length;i++)if(String(all[i][idx])===String(id)){rowNum=i+1;break;}
   var creating=rowNum<0;if(creating)rowNum=sh.getLastRow()+1;
