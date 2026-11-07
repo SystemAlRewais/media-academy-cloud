@@ -10,7 +10,7 @@
  */
 const TABLES = {
   Institutions: ['institution_id','name','slug','status','logo_url','primary_color','created_at'],
-  Users: ['user_id','institution_id','student_code','full_name','email','phone','password_hash','password_salt','role','cohort_id','department','status','avatar_url','created_at','updated_at'],
+  Users: ['user_id','institution_id','student_code','username','full_name','email','phone','password_hash','password_salt','role','cohort_id','department','status','avatar_url','created_at','updated_at'],
   Cohorts: ['cohort_id','institution_id','name','level','academic_year','status'],
   Departments: ['department_id','institution_id','name','status'],
   Subjects: ['subject_id','institution_id','cohort_id','name','code','instructor','status'],
@@ -86,9 +86,9 @@ function dispatch_(action, req, user) {
     case 'listMessages': return listRows_('Messages',user,r=>r.sender_id===user.user_id||r.recipient_id===user.user_id||isAdmin_(user));
     case 'saveStudent': return saveStudent_(req, user);
     case 'changeStudentCohort': return changeStudentCohort_(req, user);
-    case 'listCohorts': return listRows_('Cohorts', user);
+    case 'listCohorts': return listRows_('Cohorts', user, r => isAdmin_(user) || r.cohort_id === user.cohort_id);
     case 'saveCohort': return saveCohort_(req,user);
-    case 'listSubjects': return listRows_('Subjects', user);
+    case 'listSubjects': return listRows_('Subjects', user, r => isAdmin_(user) || !r.cohort_id || r.cohort_id === user.cohort_id);
     case 'saveSubject': return saveRow_('Subjects',req.data,user,'subject_id');
     case 'listLectures': return listRows_('Lectures',user);
     case 'saveLecture': return saveRow_('Lectures',req.data,user,'lecture_id');
@@ -148,7 +148,7 @@ function setupInitialOwner() {
   const salt = Utilities.getUuid();
   const sh = db_().getSheetByName('Users');
   const id = Utilities.getUuid();
-  sh.appendRow([id,'default','', 'Platform Owner',email,'',hash_(password,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
+  sh.appendRow([id,'default','', 'Owner', 'Owner',email,'',hash_(password,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
   db_().getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',new Date().toISOString()]);
   const rooms = db_().getSheetByName('ForumRooms');
   if (rooms.getLastRow() < 2) rooms.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',new Date().toISOString()]);
@@ -182,12 +182,12 @@ function setupInitialAccounts() {
   let createdStudent = false;
   if (!findUserByEmail_(email)) {
     const salt = Utilities.getUuid();
-    users.appendRow([Utilities.getUuid(),'default','','Platform Owner',email,'',hash_(ownerPassword,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
+    users.appendRow([Utilities.getUuid(),'default','','Owner','Owner',email,'',hash_(ownerPassword,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
     createdOwner = true;
   }
   if (!rows_('Users').some(r => String(r.student_code || '').toLowerCase() === studentCode.toLowerCase())) {
     const salt = Utilities.getUuid();
-    users.appendRow([Utilities.getUuid(),'default',studentCode,studentName,'','',hash_(studentPassword,salt),salt,'student','','','active','',new Date().toISOString(),new Date().toISOString()]);
+    users.appendRow([Utilities.getUuid(),'default',studentCode,studentCode,studentName,'','',hash_(studentPassword,salt),salt,'student','','','active','',new Date().toISOString(),new Date().toISOString()]);
     createdStudent = true;
   }
   const rooms = ss.getSheetByName('ForumRooms');
@@ -218,7 +218,7 @@ function authorize_(token, action) {
   return user;
 }
 function findUserByEmail_(email) { if (!email) return null; return rows_('Users').find(r => String(r.email).toLowerCase() === String(email).toLowerCase()) || null; }
-function findUserByLogin_(identifier) { if (!identifier) return null; const key=String(identifier).toLowerCase(); return rows_('Users').find(r => String(r.email||'').toLowerCase()===key || String(r.student_code||'').toLowerCase()===key) || null; }
+function findUserByLogin_(identifier) { if (!identifier) return null; const key=String(identifier).trim().toLowerCase(); return rows_('Users').find(r => String(r.email||'').toLowerCase()===key || String(r.student_code||'').toLowerCase()===key || String(r.username||'').toLowerCase()===key) || null; }
 function findById_(table,key,value) { return rows_(table).find(r => String(r[key]) === String(value)) || null; }
 function rows_(table) {
   const sh = db_().getSheetByName(table);
@@ -319,22 +319,22 @@ function saveCohort_(req,user) {
   if (!exists) saveRow_('ForumRooms',{room_id:Utilities.getUuid(),cohort_id:cohortId,name:d.name||'منتدى الفرقة',room_type:'cohort',status:'active',created_at:new Date().toISOString()},user,'room_id');
   return result;
 }
-function forumRooms_(user) { return {ok:true,data:rows_('ForumRooms').filter(r=>r.institution_id===user.institution_id && r.status==='active')}; }
+function canAccessRoom_(room,user) { return !!room && room.institution_id===user.institution_id && (isAdmin_(user) || !room.cohort_id || room.cohort_id===user.cohort_id); }\nfunction forumRooms_(user) { return {ok:true,data:rows_('ForumRooms').filter(r=>r.status==='active' && canAccessRoom_(r,user))}; }
 function forumFeed_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
-  if (!room || room.institution_id!==user.institution_id) throw new Error('ROOM_NOT_FOUND');
+  if (!canAccessRoom_(room,user)) throw new Error('ROOM_NOT_FOUND');
   const posts = rows_('ForumPosts').filter(p=>p.room_id===req.room_id && p.status==='active' && p.institution_id===user.institution_id);
   return {ok:true,data:posts.map(p=>{const author=findById_('Users','user_id',p.author_id);return Object.assign({},p,{author_name:author?author.full_name:'طالب',replies:rows_('ForumReplies').filter(r=>r.post_id===p.post_id && r.status==='active')});})};
 }
 function createForumPost_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
-  if (!room || room.institution_id!==user.institution_id || room.status!=='active') throw new Error('ROOM_NOT_AVAILABLE');
+  if (!canAccessRoom_(room,user) || room.status!=='active') throw new Error('ROOM_NOT_AVAILABLE');
   if (!String(req.body||'').trim()) throw new Error('EMPTY_POST');
   return saveRow_('ForumPosts',{post_id:Utilities.getUuid(),room_id:req.room_id,author_id:user.user_id,body:String(req.body).slice(0,5000),attachment_url:'',created_at:new Date().toISOString(),status:'active'},user,'post_id');
 }
 function replyForumPost_(req,user) {
   const post = findById_('ForumPosts','post_id',req.post_id);
-  if (!post || post.institution_id!==user.institution_id || !String(req.body||'').trim()) throw new Error('POST_NOT_FOUND');
+  if (!post || post.institution_id!==user.institution_id || !canAccessRoom_(findById_('ForumRooms','room_id',post.room_id),user) || !String(req.body||'').trim()) throw new Error('POST_NOT_FOUND');
   return saveRow_('ForumReplies',{reply_id:Utilities.getUuid(),post_id:req.post_id,author_id:user.user_id,body:String(req.body).slice(0,3000),created_at:new Date().toISOString(),status:'active'},user,'reply_id');
 }
 function createAttendanceSession_(req,user) {
