@@ -84,7 +84,7 @@ function dispatch_(action, req, user) {
     case 'saveStudent': return saveStudent_(req, user);
     case 'changeStudentCohort': return changeStudentCohort_(req, user);
     case 'listCohorts': return listRows_('Cohorts', user);
-    case 'saveCohort': return saveRow_('Cohorts',req.data,user,'cohort_id');
+    case 'saveCohort': return saveCohort_(req,user);
     case 'listSubjects': return listRows_('Subjects', user);
     case 'saveSubject': return saveRow_('Subjects',req.data,user,'subject_id');
     case 'listLectures': return listRows_('Lectures',user);
@@ -245,12 +245,20 @@ function disciplineHistory_(id,user) {
   if (!isAdmin_(user) && user.user_id !== id) throw new Error('FORBIDDEN');
   return {ok:true,data:rows_('Discipline').filter(r=>r.student_id===id && r.institution_id===user.institution_id && (isAdmin_(user)||r.visibility!=='admin'))};
 }
+function saveCohort_(req,user) {
+  const d=Object.assign({},req.data||{});
+  const result=saveRow_('Cohorts',d,user,'cohort_id');
+  const cohortId=result.id;
+  const exists=rows_('ForumRooms').some(r=>r.institution_id===user.institution_id && r.cohort_id===cohortId);
+  if (!exists) saveRow_('ForumRooms',{room_id:Utilities.getUuid(),cohort_id:cohortId,name:d.name||'منتدى الفرقة',room_type:'cohort',status:'active',created_at:new Date().toISOString()},user,'room_id');
+  return result;
+}
 function forumRooms_(user) { return {ok:true,data:rows_('ForumRooms').filter(r=>r.institution_id===user.institution_id && r.status==='active')}; }
 function forumFeed_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
   if (!room || room.institution_id!==user.institution_id) throw new Error('ROOM_NOT_FOUND');
   const posts = rows_('ForumPosts').filter(p=>p.room_id===req.room_id && p.status==='active' && p.institution_id===user.institution_id);
-  return {ok:true,data:posts.map(p=>Object.assign({},p,{replies:rows_('ForumReplies').filter(r=>r.post_id===p.post_id && r.status==='active')}))};
+  return {ok:true,data:posts.map(p=>{const author=findById_('Users','user_id',p.author_id);return Object.assign({},p,{author_name:author?author.full_name:'طالب',replies:rows_('ForumReplies').filter(r=>r.post_id===p.post_id && r.status==='active')});})};
 }
 function createForumPost_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
