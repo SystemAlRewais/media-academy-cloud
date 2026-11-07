@@ -14,7 +14,7 @@
   <a class="brand" href="#" aria-label="Media Academy">
     <span class="brand-mark">MA</span><span class="brand-copy"><b>MEDIA ACADEMY</b><small>CLOUD EDUCATION PLATFORM</small></span>
   </a>
-  <div class="header-right"><span class="secure-label"><i></i> بوابة الأكاديمية الرسمية</span><span class="header-divider"></span><span class="header-caption">منصة التعليم والتدريب</span></div>
+  <div class="header-right"><span class="secure-label"><i></i> <span>بوابة الأكاديمية الرسمية · <b id="collegeHeaderName">كلية الإعلام – جامعة الأزهر</b></span></span><span class="header-divider"></span><span class="header-caption">منصة التعليم والتدريب</span></div>
 </header>
 
 <main id="authPage" class="page-wrap">
@@ -71,7 +71,7 @@
   </div>
 </main>
 
-<footer class="site-footer"><span>© MEDIA ACADEMY</span><span>LEARN · CREATE · ACHIEVE</span><span>جميع الحقوق محفوظة</span><span class="developer-credit">تم التنفيذ والتطوير بواسطة احمد سمير وعمار منصور</span></footer>
+<footer class="site-footer"><span>© MEDIA ACADEMY</span><span>LEARN · CREATE · ACHIEVE</span><span>جميع الحقوق محفوظة</span><button type="button" class="footer-settings-link" id="openCollegeSettings">إعدادات الكليات</button><span class="developer-credit">تم التنفيذ والتطوير بواسطة احمد سمير وعمار منصور</span></footer>
 
 <div class="modal-backdrop hidden" id="registerModal" role="dialog" aria-modal="true" aria-labelledby="registerTitle">
  <section class="modal-card"><button type="button" class="modal-close" id="closeRegister" aria-label="إغلاق">×</button><div class="modal-kicker">STUDENT REGISTRATION</div><h2 id="registerTitle">إنشاء حساب طالب</h2><p>املأ البيانات التالية لإرسال طلب التسجيل إلى إدارة الأكاديمية.</p>
@@ -80,6 +80,14 @@
   <p class="form-message" id="registerMessage" role="status" aria-live="polite"></p><button class="primary-button" id="registerButton" type="submit"><span>إرسال طلب التسجيل</span><b>←</b></button>
   <div class="approval-note"><span>◈</span> يتم تفعيل الحساب بعد مراجعة واعتماد الطلب من إدارة الأكاديمية.</div>
  </form></section>
+</div>
+
+<div class="modal-backdrop hidden" id="collegeSettingsModal" role="dialog" aria-modal="true" aria-labelledby="collegeSettingsTitle">
+ <section class="modal-card college-settings-card"><button type="button" class="modal-close" id="closeCollegeSettings" aria-label="إغلاق">×</button><div class="modal-kicker">ACADEMY IDENTITY</div><h2 id="collegeSettingsTitle">إعدادات الكليات</h2><p>حدد الكلية الظاهرة على المنصة، أو أضف كلية أخرى.</p>
+ <label class="field-label" for="activeCollegeSelect">الكلية الحالية</label><select class="form-input" id="activeCollegeSelect"></select>
+ <label class="field-label" for="newCollegeName">إضافة كلية جديدة</label><div class="college-add-row"><input class="form-input" id="newCollegeName" placeholder="مثال: كلية التجارة – جامعة الأزهر"><button type="button" class="small-primary" id="addCollegeButton">إضافة</button></div>
+ <div id="collegeList" class="college-list"></div><p class="college-settings-note" id="collegeSettingsNote">يتم حفظ هذه الإعدادات على هذا المتصفح فقط في النسخة الحالية.</p>
+ </section>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="assets/js/config.js"></script><script src="assets/js/app.js"></script>
