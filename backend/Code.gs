@@ -215,11 +215,11 @@ function studentProfile_(id,user) {
   if (!isAdmin_(user) && user.user_id !== id) throw new Error('FORBIDDEN');
   const student = findById_('Users','user_id',id);
   if (!student || student.institution_id !== user.institution_id) throw new Error('STUDENT_NOT_FOUND');
-  return {ok:true,profile:safeUser_(student),discipline:rows_('Discipline').filter(r=>r.student_id===id && r.institution_id===user.institution_id),grades:rows_('Grades').filter(r=>r.student_id===id && r.institution_id===user.institution_id),attendance:rows_('Attendance').filter(r=>r.student_id===id && r.institution_id===user.institution_id)};
+  return {ok:true,profile:safeUser_(student),discipline:rows_('Discipline').filter(r=>r.student_id===id && r.institution_id===user.institution_id && (isAdmin_(user)||r.visibility!=='admin')),grades:rows_('Grades').filter(r=>r.student_id===id && r.institution_id===user.institution_id),attendance:rows_('Attendance').filter(r=>r.student_id===id && r.institution_id===user.institution_id)};
 }
 function disciplineHistory_(id,user) {
   if (!isAdmin_(user) && user.user_id !== id) throw new Error('FORBIDDEN');
-  return {ok:true,data:rows_('Discipline').filter(r=>r.student_id===id && r.institution_id===user.institution_id)};
+  return {ok:true,data:rows_('Discipline').filter(r=>r.student_id===id && r.institution_id===user.institution_id && (isAdmin_(user)||r.visibility!=='admin'))};
 }
 function forumRooms_(user) { return {ok:true,data:rows_('ForumRooms').filter(r=>r.institution_id===user.institution_id && r.status==='active')}; }
 function forumFeed_(req,user) {
