@@ -216,6 +216,7 @@ function renderSection(section,data){
  if(editor&&form){
   if(createButton&&canCreate) createButton.addEventListener("click",()=>{form.reset();form.dataset.id="";$("editorTitle").textContent="إضافة سجل جديد";editor.classList.remove("hidden");});
   form.addEventListener("submit",saveRecord);
+  if(section==="attendance_sessions"&&form.elements.location_url){form.elements.location_url.addEventListener("input",()=>{form.elements.latitude.value="";form.elements.longitude.value="";});}
   form.addEventListener("click",e=>{if(e.target.closest("[data-cancel]"))editor.classList.add("hidden")});
   $("workspaceView").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const row=rows.find(x=>String(x[section==="attendance_sessions"?"session_id":"id"])===b.dataset.edit);if(!row)return;form.reset();form.dataset.id=row.id;defs.forEach(f=>{const el=form.elements[f.name];if(el&&f.name!=="password")el.value=f.type==="datetime-local"?toLocalDateTime(row[f.name]):(row[f.name]??"")});$("editorTitle").textContent="تعديل البيانات";editor.classList.remove("hidden")}));
   $("workspaceView").querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",async()=>{if(!confirm("هل تريد حذف هذا السجل نهائياً؟"))return;await mutateRecord(section,"delete",b.dataset.delete,{});loadSection(section)}));
