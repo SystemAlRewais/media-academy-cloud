@@ -426,9 +426,28 @@ function hash_(password,salt) {
   return bytes.map(b=>("0"+((b+256)%256).toString(16)).slice(-2)).join("");
 }
 function db_() {
-  const id=PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
-  if(id)return SpreadsheetApp.openById(id);
-  const ss=SpreadsheetApp.getActiveSpreadsheet();if(!ss)throw new Error("اضبط SPREADSHEET_ID في Script Properties.");
-  return ss;
+  const props = PropertiesService.getScriptProperties();
+  let id = String(props.getProperty("SPREADSHEET_ID") || "").trim();
+
+  // Repair the previously used truncated ID automatically.
+  const correctId = "11_AlAxy147RlG96pBh1l9C3rD5lG0SHkrSEODfvQ9qs";
+  const truncatedId = "AlAxy147RlG96pBh1l9C3rD5lG0SHkrSEODfvQ9qs";
+  if (!id || id === truncatedId) {
+    id = correctId;
+  }
+
+  // Accept a full Google Sheets URL in Script Properties as well as a raw ID.
+  const match = id.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) id = match[1];
+
+  if (!/^[a-zA-Z0-9_-]{20,}$/.test(id)) {
+    throw new Error("معرّف قاعدة البيانات غير صالح. راجع SPREADSHEET_ID في Script Properties.");
+  }
+
+  try {
+    return SpreadsheetApp.openById(id);
+  } catch (err) {
+    throw new Error("تعذر فتح قاعدة البيانات بالمعرّف المحدد. تأكد أن حساب نشر Apps Script لديه صلاحية تعديل ملف Google Sheets. التفاصيل: " + String(err));
+  }
 }
 function out(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
