@@ -31,7 +31,7 @@ const TABLES = {
   AuditLog: ['log_id','institution_id','actor_id','action','entity','entity_id','details_json','created_at'],
   Settings: ['key','value','updated_by','updated_at']
 };
-const PUBLIC_ACTIONS = ['health','login','bootstrapStatus'];
+const PUBLIC_ACTIONS = ['health','login','bootstrapStatus','bootstrapOwner'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
 const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','listExams','saveExam','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','closeAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions','listManagers','saveManager'];
 
@@ -63,7 +63,8 @@ function route_(req) {
   try {
     const action = String(req.action || 'health');
     if (action === 'health') return {ok:true,service:'Media Academy Cloud API',time:new Date().toISOString()};
-    if (action === 'bootstrapStatus') return {ok:true,initialized:!!findUserByEmail_(prop_('BOOTSTRAP_EMAIL'))};
+    if (action === 'bootstrapStatus') return {ok:true,initialized:rows_('Users').some(u=>u.role==='owner'||u.role==='super_admin')};
+    if (action === 'bootstrapOwner') return bootstrapOwner_(req);
     if (action === 'login') return login_(req);
     const user = authorize_(req.token, action);
     if (ADMIN_ONLY_ACTIONS.indexOf(action) >= 0) requireAdmin_(user);
@@ -147,32 +148,35 @@ function setupDatabase() {
 }
 function setupInitialOwner() {
   setupDatabase();
-  const email = prop_('BOOTSTRAP_EMAIL').trim().toLowerCase();
-  const password = prop_('BOOTSTRAP_PASSWORD');
-  if (!email || password.length < 12) throw new Error('Set BOOTSTRAP_EMAIL and a 12+ character BOOTSTRAP_PASSWORD in Script Properties first.');
-  if (findUserByEmail_(email)) throw new Error('Owner already exists.');
-  const salt = Utilities.getUuid();
-  const sh = db_().getSheetByName('Users');
-  const id = Utilities.getUuid();
-  sh.appendRow([id,'default','', 'Owner', 'Owner',email,'',hash_(password,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
-  db_().getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',new Date().toISOString()]);
-  const cohortSheet=db_().getSheetByName('Cohorts');
-  const roomSheet=db_().getSheetByName('ForumRooms');
-  const defaults=[
-    ['cohort-1','الفرقة الأولى','1'],
-    ['cohort-2','الفرقة الثانية','2'],
-    ['cohort-3','الفرقة الثالثة','3'],
-    ['cohort-4','الفرقة الرابعة','4']
-  ];
-  defaults.forEach(item=>{
-    if(!findById_('Cohorts','cohort_id',item[0])) {
-      cohortSheet.appendRow([item[0],'default',item[1],item[2],'','active']);
-      roomSheet.appendRow([Utilities.getUuid(),'default',item[0],'منتدى '+item[1],'cohort','active',new Date().toISOString()]);
-    }
-  });
-  if (!rows_('ForumRooms').some(r=>r.institution_id==='default'&&!r.cohort_id)) roomSheet.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',new Date().toISOString()]);
-  PropertiesService.getScriptProperties().deleteProperty('BOOTSTRAP_PASSWORD');
-  return 'Initial owner created. Temporary bootstrap password property removed.';
+  throw new Error('OWNER_SETUP_MOVED_TO_ADMIN_PORTAL');
+}
+function bootstrapOwner_(req) {
+  const lock=LockService.getScriptLock();
+  if(!lock.tryLock(15000)) throw new Error('SETUP_BUSY');
+  try {
+    setupDatabase();
+    if(rows_('Users').some(u=>u.role==='owner'||u.role==='super_admin')) throw new Error('OWNER_ALREADY_EXISTS');
+    const d=req.data||{};
+    const name=String(d.full_name||'').trim();
+    const email=String(d.email||'').trim().toLowerCase();
+    const password=String(d.password||'');
+    if(name.length<2) throw new Error('OWNER_NAME_REQUIRED');
+    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) throw new Error('INVALID_OWNER_EMAIL');
+    if(password.length<12) throw new Error('OWNER_PASSWORD_TOO_SHORT');
+    if(findUserByEmail_(email)) throw new Error('EMAIL_EXISTS');
+    const now=new Date().toISOString(), salt=Utilities.getUuid(), id=Utilities.getUuid();
+    db_().getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',now]);
+    db_().getSheetByName('Users').appendRow([id,'default','',email,name,email,'',hash_(password,salt),salt,'owner','','','active','',now,now]);
+    const cohortSheet=db_().getSheetByName('Cohorts'), roomSheet=db_().getSheetByName('ForumRooms');
+    [['cohort-1','الفرقة الأولى','1'],['cohort-2','الفرقة الثانية','2'],['cohort-3','الفرقة الثالثة','3'],['cohort-4','الفرقة الرابعة','4']].forEach(x=>{
+      cohortSheet.appendRow([x[0],'default',x[1],x[2],'','active']);
+      roomSheet.appendRow([Utilities.getUuid(),'default',x[0],'منتدى '+x[1],'cohort','active',now]);
+    });
+    roomSheet.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',now]);
+    const token=Utilities.getUuid()+Utilities.getUuid();
+    CacheService.getScriptCache().put('sess_'+token,id,21600);
+    return {ok:true,token:token,user:safeUser_(findById_('Users','user_id',id)),expires_in:21600};
+  } finally { lock.releaseLock(); }
 }
 
 function login_(req) {
