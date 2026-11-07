@@ -107,7 +107,7 @@ function dispatch_(action, req, user) {
     case 'openAttendanceSessions': return openAttendanceSessions_(user);
     case 'createAttendanceSession': requireAdmin_(user); return createAttendanceSession_(req,user);
     case 'checkIn': return checkIn_(req, user);
-    case 'listGrades': return listRows_('Grades', user, r => isAdmin_(user) || r.student_id === user.user_id);
+    case 'listGrades': { const result=listRows_('Grades',user,r=>isAdmin_(user)||r.student_id===user.user_id); result.data=result.data.map(g=>{const subject=findById_('Subjects','subject_id',g.subject_id);const exam=findById_('Exams','exam_id',g.exam_id);return Object.assign({},g,{subject_name:subject?subject.name:'',exam_title:exam?exam.title:''})});return result; }
     case 'listExams': requireAdmin_(user); return listRows_('Exams',user);
     case 'saveExam': return saveExam_(req,user);
     case 'saveGrade': requireAdmin_(user); return saveGrade_(req,user);
@@ -533,7 +533,7 @@ function dashboard_(user) {
   const scoped=table=>rows_(table).filter(r=>r.institution_id===user.institution_id);
   return {ok:true,summary:{students:scoped('Users').filter(u=>u.role==='student'&&u.status==='active').length,cohorts:scoped('Cohorts').length,content:scoped('Content').length,openTickets:scoped('SupportTickets').filter(t=>t.status==='new'||t.status==='open').length,forumPosts:scoped('ForumPosts').length}};
 }
-function safeUser_(u) { const x=Object.assign({},u); delete x.password_hash; delete x.password_salt; return x; }
+function safeUser_(u) { const x=Object.assign({},u); delete x.password_hash; delete x.password_salt; if(x.cohort_id){const cohort=findById_('Cohorts','cohort_id',x.cohort_id);x.cohort_name=cohort?cohort.name:'';} return x; }
 function isOwner_(u) { return u && ['owner','super_admin'].includes(u.role); }
 function isAdmin_(u) { return u && ADMIN_ROLES.includes(u.role); }
 function requireAdmin_(u) { if (!isAdmin_(u)) throw new Error('ADMIN_REQUIRED'); }
