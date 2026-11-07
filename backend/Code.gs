@@ -346,10 +346,10 @@ function replyForumPost_(req,user) {
 }
 function extractMapCoordinates_(url) {
   const patterns=[
-    /@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/,
-    /[?&](?:q|query|ll|center)=(-?\\d+(?:\\.\\d+)?)(?:%2C|,|%252C)(-?\\d+(?:\\.\\d+)?)/i,
-    /!3d(-?\\d+(?:\\.\\d+)?)!4d(-?\\d+(?:\\.\\d+)?)/,
-    /(-?\\d{1,2}\\.\\d{4,})[, ]+(-?\\d{1,3}\\.\\d{4,})/
+    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?)(?:%2C|,|%252C)(-?\d+(?:\.\d+)?)/i,
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+    /(-?\d{1,2}\.\d{4,})[, ]+(-?\d{1,3}\.\d{4,})/
   ];
   for (const pattern of patterns) {
     const match=String(url||'').match(pattern);
@@ -359,7 +359,7 @@ function extractMapCoordinates_(url) {
 }
 function coordinatesFromMapsUrl_(url) {
   let current=String(url||'').trim();
-  if(!/^https?:\\/\\//i.test(current))throw new Error('INVALID_MAPS_LINK');
+  if(!/^https?:\/\//i.test(current))throw new Error('INVALID_MAPS_LINK');
   for(let i=0;i<5;i++) {
     const found=extractMapCoordinates_(current);
     if(found)return found;
