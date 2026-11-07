@@ -334,6 +334,24 @@ function ensureDatabaseSafe_(){
   }
 }
 
+function runSystemDiagnostics() {
+  ensureDatabaseSafe_();
+  const props=PropertiesService.getScriptProperties(), ss=db_(), report={success:true,spreadsheet_configured:!!props.getProperty("SPREADSHEET_ID"),admin_username_configured:!!props.getProperty("ADMIN_USERNAME"),admin_password_configured:!!props.getProperty("ADMIN_PASSWORD"),tables:{},missing_headers:[],record_counts:{}};
+  Object.keys(TABLES).forEach(name=>{
+    const sh=ss.getSheetByName(name);
+    report.tables[name]=!!sh;
+    if(sh){
+      const headers=sh.getRange(1,1,1,Math.max(sh.getLastColumn(),1)).getValues()[0].map(String);
+      const missing=TABLES[name].filter(h=>!headers.includes(h));
+      if(missing.length)report.missing_headers.push({table:name,columns:missing});
+      report.record_counts[name]=Math.max(0,sh.getLastRow()-1);
+    }
+  });
+  report.owner_account_exists=readRows_("Admins").some(x=>String(x.role)==="owner"&&String(x.status||"active")==="active");
+  report.attendance_geofence_ready=!!ss.getSheetByName("AttendanceSessions")&&TABLES.Attendance.includes("distance_meters")&&TABLES.AttendanceSessions.includes("code_hash");
+  report.success=report.spreadsheet_configured&&report.admin_username_configured&&report.admin_password_configured&&report.owner_account_exists&&Object.values(report.tables).every(Boolean)&&report.missing_headers.length===0;
+  return report;
+}
 function recordIdField_(section) { return section === "attendance_sessions" ? "session_id" : "id"; }
 function cohortField_(section) {
   if (section === "announcements") return "target_cohort";
