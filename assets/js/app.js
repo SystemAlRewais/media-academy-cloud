@@ -171,7 +171,7 @@ async function saveRecord(e){
  fieldDefs(section).forEach(f=>{const el=form.elements[f.name];if(el&&el.value!==""&&!(f.name==="password"&&!el.value))record[f.name]=el.value});
  const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
  try{
-  if(section==="materials"){
+  if(section==="materials"||section==="lectures"){
    const file=form.elements.uploadFile.files[0];
    if(file){
     if(file.size>8*1024*1024)throw new Error("الحد الأقصى لحجم الملف 8 ميجابايت حالياً.");
