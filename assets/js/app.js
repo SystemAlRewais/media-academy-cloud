@@ -52,7 +52,7 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),cfg.REQUEST_TIMEOUT_MS||20000);
  try{
   const headers={"Content-Type":"text/plain;charset=utf-8","Accept":"application/json"};
-  if(auth&&token) headers.Authorization="Bearer "+token;
+
   const url=cfg.API_BASE_URL.replace(/\/$/,"");
   let response;
   if(method==="GET"){
@@ -212,7 +212,7 @@ function renderSection(section,data){
   $("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="data-table-wrap"><table class="data-table"><tbody>'+Object.entries(fields).filter(([k])=>!["password","token","password_hash","password_salt"].includes(k.toLowerCase())).map(([k,v])=>'<tr><th>'+escapeHtml(k)+'</th><td>'+escapeHtml(v)+'</td></tr>').join("")+'</tbody></table></div>';return;
  }
  const rows=Array.isArray(data.items)?data.items:(Array.isArray(data[section])?data[section]:[]);
- const admin=isAdminUser()||currentUser.role==="owner";
+ const admin=isAdminUser();
  const defs=fieldDefs(section);
  const canManage=admin&&(section==="settings"||COHORTS.includes(selectedCohort)||(section==="students"&&selectedCohort==="__unassigned__"));
  const canCreate=admin&&(section==="settings"||COHORTS.includes(selectedCohort));
