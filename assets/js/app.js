@@ -115,21 +115,74 @@ async function loadSection(section){
  }catch(err){$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل القسم</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>'}
 }
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function fieldDefs(section){
+ const common={status:{label:"الحالة",type:"select",options:["active","inactive","pending","published","draft"]},cohort:{label:"الفرقة",type:"text"},department:{label:"القسم",type:"text"}};
+ const defs={
+ students:[["student_code","كود الطالب"],["full_name","الاسم بالكامل"],["username","اسم المستخدم"],["email","البريد الإلكتروني","email"],["phone","رقم الهاتف"],["password","كلمة المرور","password"],["cohort","الفرقة"],["department","القسم"],["status","الحالة","select",["pending","active","inactive","rejected"]]],
+ courses:[["title","اسم المادة"],["description","الوصف","textarea"],["cohort","الفرقة"],["department","القسم"],["teacher","اسم المدرس"],["sort_order","الترتيب","number"],["status","الحالة","select",["active","inactive"]]],
+ materials:[["title","عنوان الكتاب أو الملف"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["status","الحالة","select",["active","inactive"]]],
+ lectures:[["title","عنوان المحاضرة"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["teacher","المدرس"],["lecture_date","التاريخ","date"],["start_time","من الساعة","time"],["end_time","إلى الساعة","time"],["room","القاعة"],["meeting_url","رابط المحاضرة","url"],["status","الحالة","select",["active","inactive"]]],
+ exams:[["title","اسم الامتحان"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["start_at","موعد البداية","datetime-local"],["end_at","موعد النهاية","datetime-local"],["duration_minutes","المدة بالدقائق","number"],["status","الحالة","select",["draft","published","closed"]]],
+ attendance:[["student_id","معرّف الطالب"],["student_code","كود الطالب"],["lecture_id","معرّف المحاضرة"],["attendance_date","التاريخ","date"],["check_in","وقت الحضور","time"],["status","الحالة","select",["present","absent","late"]],["notes","ملاحظات","textarea"]],
+ announcements:[["title","عنوان الإعلان"],["body","نص الإعلان","textarea"],["target_cohort","الفرقة المستهدفة"],["status","الحالة","select",["draft","published"]],["publish_at","موعد النشر","datetime-local"],["expire_at","انتهاء الإعلان","datetime-local"]],
+ complaints:[["subject","موضوع الشكوى"],["message","نص الشكوى","textarea"],["reply","رد الإدارة","textarea"],["status","الحالة","select",["new","in_progress","resolved","archived"]]],
+ settings:[["key","اسم الإعداد"],["value","القيمة","textarea"]]
+ };
+ return (defs[section]||[]).map(x=>({name:x[0],label:x[1],type:x[2]||"text",options:x[3]||[]}));
+}
 function renderSection(section,data){
- const title=({home:"نظرة عامة",profile:"ملفي الشخصي",students:"إدارة الطلاب",courses:"المواد الدراسية",materials:"الكتب والملفات",lectures:"المحاضرات",schedule:"الجدول الدراسي",exams:"الامتحانات والنتائج",attendance:"الحضور",announcements:"الإعلانات",complaints:"الشكاوى والمقترحات",settings:"إعدادات النظام"})[section]||"الأكاديمية";
+ const title=({home:"نظرة عامة",profile:"ملفي الشخصي",students:"إدارة الطلاب",courses:"المواد الدراسية",materials:"الكتب والملفات",lectures:"المحاضرات والجداول",schedule:"الجدول الدراسي",exams:"الامتحانات والنتائج",attendance:"الحضور",announcements:"الإعلانات",complaints:"الشكاوى والمقترحات",settings:"إعدادات النظام"})[section]||"الأكاديمية";
  if(section==="home"){
-  const stats=data.stats||{};const entries=Object.entries(stats);
-  $("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="dashboard-stats">'+(entries.length?entries.map(([k,v])=>'<div class="dashboard-stat"><small>'+escapeHtml(k)+'</small><strong>'+escapeHtml(v)+'</strong></div>').join(""):'<div class="empty-state">لا توجد إحصائيات متاحة حالياً.</div>')+'</div><p class="section-note">'+escapeHtml(data.message||"مرحباً بك في بوابة الأكاديمية.")+'</p>';
-  return;
+  const entries=Object.entries(data.stats||{});
+  $("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="dashboard-stats">'+(entries.length?entries.map(([k,v])=>'<div class="dashboard-stat"><small>'+escapeHtml(k)+'</small><strong>'+escapeHtml(v)+'</strong></div>').join(""):'<div class="empty-state">لا توجد إحصائيات متاحة.</div>')+'</div><p class="section-note">'+escapeHtml(data.message||"")+'</p>';return;
  }
  if(section==="profile"){
   const fields=data.profile||data.user||currentUser;
-  $("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="data-table-wrap"><table class="data-table"><tbody>'+Object.entries(fields).filter(([k])=>!["password","token"].includes(k.toLowerCase())).map(([k,v])=>'<tr><th>'+escapeHtml(k)+'</th><td>'+escapeHtml(v)+'</td></tr>').join("")+'</tbody></table></div>';return;
+  $("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="data-table-wrap"><table class="data-table"><tbody>'+Object.entries(fields).filter(([k])=>!["password","token","password_hash","password_salt"].includes(k.toLowerCase())).map(([k,v])=>'<tr><th>'+escapeHtml(k)+'</th><td>'+escapeHtml(v)+'</td></tr>').join("")+'</tbody></table></div>';return;
  }
  const rows=Array.isArray(data.items)?data.items:(Array.isArray(data[section])?data[section]:[]);
- if(!rows.length){$("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="empty-state"><div class="empty-symbol">◇</div><b>لا توجد بيانات لعرضها حالياً</b><p class="section-note">ستظهر البيانات هنا بعد إضافتها واعتمادها من إدارة الأكاديمية.</p></div>';return}
- const cols=Object.keys(rows[0]).filter(k=>!["id","password","token"].includes(k.toLowerCase()));
- $("workspaceView").innerHTML='<div class="section-toolbar"><h2>'+title+'</h2></div><div class="data-table-wrap"><table class="data-table"><thead><tr>'+cols.map(c=>'<th>'+escapeHtml(c)+'</th>').join("")+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+cols.map(c=>'<td>'+escapeHtml(row[c])+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>';
+ const admin=currentUser.role==="admin"||currentUser.role==="owner";
+ const defs=fieldDefs(section);
+ let html='<div class="section-toolbar"><h2>'+title+'</h2>';
+ if(admin && defs.length) html+='<button type="button" class="small-primary" data-create>＋ إضافة جديد</button>';
+ html+='</div>';
+ if(admin && section==="materials") html+='<p class="section-note">لإضافة كتاب أو ملف، اضغط «إضافة جديد» ثم اختر ملف PDF أو مستند من جهازك.</p>';
+ if(admin && defs.length) html+='<div id="recordEditor" class="record-editor hidden"><h3 id="editorTitle">إضافة سجل</h3><form id="recordForm" class="record-form" data-section="'+section+'"><div class="record-fields">'+defs.map(f=>'<label class="field-label">'+escapeHtml(f.label)+(f.type==="password"?' (اختياري عند التعديل)':'')+(f.type==="textarea"?'<textarea name="'+f.name+'" class="form-input" rows="3"></textarea>':f.type==="select"?'<select name="'+f.name+'" class="form-input">'+f.options.map(o=>'<option value="'+o+'">'+o+'</option>').join("")+'</select>':'<input class="form-input" name="'+f.name+'" type="'+f.type+'" '+(f.name==="password"?'':'')+' >')+'</label>').join("")+(section==="materials"?'<label class="field-label">ملف للرفع إلى Google Drive<input class="form-input" type="file" name="uploadFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png"></label>':'')+'</div><div class="editor-actions"><button class="small-primary" type="submit">حفظ</button><button class="small-primary" type="button" data-cancel>إلغاء</button></div><p class="section-note" id="editorMessage"></p></form></div>';
+ if(!rows.length){html+='<div class="empty-state"><div class="empty-symbol">◇</div><b>لا توجد بيانات حتى الآن</b><p class="section-note">'+(admin?'ابدأ بإضافة أول سجل من الزر الموجود بالأعلى.':'ستظهر البيانات هنا بعد إضافتها واعتمادها من الإدارة.')+'</p></div>';$("workspaceView").innerHTML=html;return}
+ const cols=Object.keys(rows[0]).filter(k=>!["password","token","password_hash","password_salt"].includes(k.toLowerCase()));
+ html+='<div class="data-table-wrap"><table class="data-table"><thead><tr>'+cols.map(c=>'<th>'+escapeHtml(c)+'</th>').join("")+(admin?'<th>الإجراءات</th>':'')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+cols.map(c=>'<td>'+escapeHtml(row[c])+'</td>').join("")+(admin?'<td class="row-actions">'+(section==="students"&&row.status==="pending"?'<button type="button" data-approve="'+escapeHtml(row.id)+'">قبول</button><button type="button" data-reject="'+escapeHtml(row.id)+'">رفض</button>':'')+'<button type="button" data-edit="'+escapeHtml(row.id)+'">تعديل</button><button type="button" data-delete="'+escapeHtml(row.id)+'">حذف</button></td>':'')+'</tr>').join("")+'</tbody></table></div>';
+ $("workspaceView").innerHTML=html;
+ const editor=$("recordEditor"),form=$("recordForm");
+ if(editor&&form){
+  $("workspaceView").querySelector("[data-create]").addEventListener("click",()=>{form.reset();form.dataset.id="";$("editorTitle").textContent="إضافة سجل جديد";editor.classList.remove("hidden");});
+  form.addEventListener("submit",saveRecord);
+  form.addEventListener("click",e=>{if(e.target.closest("[data-cancel]"))editor.classList.add("hidden")});
+  $("workspaceView").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const row=rows.find(x=>String(x.id)===b.dataset.edit);if(!row)return;form.reset();form.dataset.id=row.id;defs.forEach(f=>{const el=form.elements[f.name];if(el&&f.name!=="password")el.value=row[f.name]??""});$("editorTitle").textContent="تعديل البيانات";editor.classList.remove("hidden")}));
+  $("workspaceView").querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",async()=>{if(!confirm("هل تريد حذف هذا السجل نهائياً؟"))return;await mutateRecord(section,"delete",b.dataset.delete,{});loadSection(section)}));
+  $("workspaceView").querySelectorAll("[data-approve],[data-reject]").forEach(b=>b.addEventListener("click",async()=>{const action=b.dataset.approve?"approve":"reject";await api("/api/admin/"+section,{method:"POST",body:{action,section,id:b.dataset.approve||b.dataset.reject}});showToast(action==="approve"?"تم اعتماد الطالب":"تم رفض الطلب");loadSection(section)}));
+ }
+}
+async function mutateRecord(section,action,id,record){
+ const data={action,section,record};if(id)data.id=id;
+ return api("/api/admin/"+section,{method:"POST",body:data});
+}
+async function saveRecord(e){
+ e.preventDefault();const form=e.currentTarget,section=form.dataset.section,id=form.dataset.id||"",record={};
+ fieldDefs(section).forEach(f=>{const el=form.elements[f.name];if(el&&el.value!==""&&!(f.name==="password"&&!el.value))record[f.name]=el.value});
+ const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
+ try{
+  if(section==="materials"){
+   const file=form.elements.uploadFile.files[0];
+   if(file){
+    if(file.size>8*1024*1024)throw new Error("الحد الأقصى لحجم الملف 8 ميجابايت حالياً.");
+    const base64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]);reader.onerror=reject;reader.readAsDataURL(file)});
+    const uploaded=await api("/api/admin/materials",{method:"POST",body:{action:"upload",name:file.name,mimeType:file.type||"application/octet-stream",base64}});
+    record.file_id=uploaded.fileId;record.file_url=uploaded.url;record.mime_type=file.type||"application/octet-stream";
+   }
+  }
+  await mutateRecord(section,id?"update":"create",id,record);
+  showToast(id?"تم تحديث السجل بنجاح":"تمت إضافة السجل بنجاح");loadSection(section);
+ }catch(err){msg.textContent=err.message}
 }
 $("logoutButton").addEventListener("click",()=>{token=null;currentUser=null;sessionStorage.removeItem("ma_session");$("appPage").classList.add("hidden");$("authPage").classList.remove("hidden");$("loginForm").reset();message("loginMessage","");selectRole("student");window.scrollTo({top:0,behavior:"smooth"})});
 const saved=sessionStorage.getItem("ma_session");
