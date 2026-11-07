@@ -1,5 +1,5 @@
 /* إعدادات الربط السحابي للمنصة */
 window.MEDIA_ACADEMY_CONFIG = Object.freeze({
-  API_BASE_URL: "https://script.google.com/macros/s/AKfycbw01Ny5g0FVU6U-3HgytsCd-lcUr1cbby-Cz6SzW3eRY7JJPJuGOCq8btxW6uMBFStl2A/exec",
+  API_BASE_URL: "https://script.google.com/macros/s/AKfycbyHzlFbj8x0eQg0v4YW87pSzUJHjdgTt0YAZxYocOzDJa6FD3KBdob48NmyY1mHkg3m-g/exec",
   REQUEST_TIMEOUT_MS: 20000
 });
