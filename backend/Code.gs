@@ -156,7 +156,7 @@ function createRecord_(section,record,user,selectedCohort) {
   const id = Utilities.getUuid();
   const obj = {...record,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   if(section==="attendance_sessions") {
-    const code=String(record.access_code||"").trim(),lat=Number(record.latitude),lon=Number(record.longitude),radius=Number(record.radius_meters);
+    const code=String(record.access_code||"").trim(),coords=coordinatesFromMapsUrl_(record.location_url),lat=Number.isFinite(Number(record.latitude))?Number(record.latitude):coords.latitude,lon=Number.isFinite(Number(record.longitude))?Number(record.longitude):coords.longitude,radius=Number(record.radius_meters);
     const opens=new Date(record.opens_at).getTime(),closes=new Date(record.closes_at).getTime();
     if(code.length<4) throw new Error("كود جلسة الحضور يجب ألا يقل عن 4 أحرف.");
     if(!validMapsUrl_(record.location_url)) throw new Error("أدخل رابط موقع Google Maps صحيحاً.");
@@ -192,7 +192,7 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   assertRecordCohort_(section, values, headers, row, selectedCohort);
   const obj={...record,updated_at:new Date().toISOString()};
   if(section==="attendance_sessions") {
-    const lat=record.latitude===undefined?Number(values[row][headers.indexOf("latitude")]):Number(record.latitude), lon=record.longitude===undefined?Number(values[row][headers.indexOf("longitude")]):Number(record.longitude), radius=record.radius_meters===undefined?Number(values[row][headers.indexOf("radius_meters")]):Number(record.radius_meters);
+    let lat=record.latitude===undefined?Number(values[row][headers.indexOf("latitude")]):Number(record.latitude), lon=record.longitude===undefined?Number(values[row][headers.indexOf("longitude")]):Number(record.longitude); const radius=record.radius_meters===undefined?Number(values[row][headers.indexOf("radius_meters")]):Number(record.radius_meters); if(record.location_url!==undefined && record.latitude===undefined && record.longitude===undefined){const coords=coordinatesFromMapsUrl_(record.location_url);lat=coords.latitude;lon=coords.longitude;}
     const opens=record.opens_at===undefined?new Date(values[row][headers.indexOf("opens_at")]).getTime():new Date(record.opens_at).getTime(), closes=record.closes_at===undefined?new Date(values[row][headers.indexOf("closes_at")]).getTime():new Date(record.closes_at).getTime();
     if(!Number.isFinite(opens)||!Number.isFinite(closes)||opens>=closes) throw new Error("حدد وقت بداية ونهاية صحيحين للجلسة.");
     if(record.location_url!==undefined && !validMapsUrl_(record.location_url)) throw new Error("أدخل رابط موقع Google Maps صحيحاً.");
@@ -276,6 +276,32 @@ function distanceMeters_(lat1,lon1,lat2,lon2) {
   const rad=x=>x*Math.PI/180, dLat=rad(lat2-lat1), dLon=rad(lon2-lon1);
   const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
   return 6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function coordinatesFromMapsUrl_(value) {
+  const url=String(value||"").trim();
+  if(!validMapsUrl_(url)) throw new Error("أدخل رابط موقع Google Maps صحيحاً.");
+  const candidates=[url];
+  if(/maps\.app\.goo\.gl/i.test(url)) {
+    try {
+      const response=UrlFetchApp.fetch(url,{followRedirects:true,muteHttpExceptions:true});
+      if(response.getResponseCode()>=200 && response.getResponseCode()<400) candidates.push(response.getFinalUrl());
+    } catch(err) {}
+  }
+  const patterns=[
+    /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+    /[?&](?:q|query|ll|center)=(-?\d+(?:\.\d+)?)(?:%2C|,|%2c)(-?\d+(?:\.\d+)?)/i
+  ];
+  for(const candidate of candidates) {
+    for(const pattern of patterns) {
+      const match=String(candidate||"").match(pattern);
+      if(match) {
+        const latitude=Number(match[1]),longitude=Number(match[2]);
+        if(Number.isFinite(latitude)&&Math.abs(latitude)<=90&&Number.isFinite(longitude)&&Math.abs(longitude)<=180) return {latitude,longitude};
+      }
+    }
+  }
+  throw new Error("لم نتمكن من استخراج الإحداثيات من الرابط. استخدم رابط مشاركة Google Maps كامل يحتوي على دبوس الموقع، أو أدخل خط العرض والطول يدوياً.");
 }
 function validMapsUrl_(value) {
   const url=String(value||"").trim();
