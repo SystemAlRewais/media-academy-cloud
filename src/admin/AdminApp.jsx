@@ -48,4 +48,4 @@ export default function AdminApp({onExit,initialUser=null}) {
  </main></div>;
 }
 function columnName(k){return ({full_name:'الاسم',student_code:'كود الطالب',email:'البريد',phone:'الهاتف',role:'الصلاحية',cohort_id:'الفرقة',status:'الحالة',name:'الاسم',title:'العنوان',body:'المحتوى',created_at:'تاريخ الإنشاء',event_type:'نوع الحدث',decision:'القرار',student_id:'معرّف الطالب',room_id:'المنتدى',starts_at:'البداية'})[k]||k}
-function errorText(e){const m=e?.message||String(e);return ({AUTH_REQUIRED:'سجل الدخول أولاً.',SESSION_EXPIRED:'انتهت الجلسة، سجل الدخول مرة أخرى.',INVALID_CREDENTIALS:'بيانات الدخول غير صحيحة.',ADMIN_REQUIRED:'هذا الإجراء متاح للإدارة فقط.',STUDENT_PASSWORD_TOO_SHORT:'كلمة مرور الطالب يجب ألا تقل عن 8 أحرف.'})[m]||m}
+function errorText(e){const m=e?.message||String(e);return ({AUTH_REQUIRED:'سجل الدخول أولاً.',SESSION_EXPIRED:'انتهت الجلسة، سجل الدخول مرة أخرى.',INVALID_CREDENTIALS:'بيانات الدخول غير صحيحة.',TOO_MANY_ATTEMPTS:'تم إيقاف محاولات الدخول مؤقتاً. حاول بعد 15 دقيقة.',ADMIN_REQUIRED:'هذا الإجراء متاح للإدارة فقط.',STUDENT_PASSWORD_TOO_SHORT:'كلمة مرور الطالب يجب ألا تقل عن 8 أحرف.'})[m]||m}
