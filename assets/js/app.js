@@ -10,6 +10,15 @@ const adminNav = [
  ["home","لوحة التحكم","⌂"],["students","إدارة الطلاب","♙"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات والجداول","▶"],["exams","الامتحانات والنتائج","✧"],["attendance","سجل الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"],["settings","إعدادات النظام والحضور","⚙"]
 ];
 const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
+const COLLEGE_STORAGE_KEY = "media_academy_colleges_v1";
+const DEFAULT_COLLEGE = "كلية الإعلام – جامعة الأزهر";
+function readCollegeSettings(){try{const saved=JSON.parse(localStorage.getItem(COLLEGE_STORAGE_KEY)||"null");if(saved&&Array.isArray(saved.colleges)&&saved.colleges.length)return {colleges:saved.colleges.filter(x=>typeof x==="string"&&x.trim()),active:saved.active||saved.colleges[0]};}catch{}return {colleges:[DEFAULT_COLLEGE],active:DEFAULT_COLLEGE}}
+let collegeSettings=readCollegeSettings();
+function saveCollegeSettings(){localStorage.setItem(COLLEGE_STORAGE_KEY,JSON.stringify(collegeSettings));renderCollegeSettings();applyCollegeBranding()}
+function applyCollegeBranding(){const el=$("collegeHeaderName");if(el)el.textContent=collegeSettings.active;document.title="Media Academy | "+collegeSettings.active}
+function renderCollegeSettings(){const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;select.innerHTML=collegeSettings.colleges.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join("");select.value=collegeSettings.active;list.innerHTML=collegeSettings.colleges.map(name=>'<div class="college-list-item"><span>'+escapeHtml(name)+'</span>'+(collegeSettings.colleges.length>1?'<button type="button" data-remove-college="'+encodeURIComponent(name)+'" aria-label="حذف '+escapeHtml(name)+'">حذف</button>':'<small>الكلية الافتراضية</small>')+'</div>').join("");}
+function openCollegeSettings(){renderCollegeSettings();$("collegeSettingsModal").classList.remove("hidden")}
+function closeCollegeSettings(){$("collegeSettingsModal").classList.add("hidden")}
 function message(id,text,success=false){const el=$(id);if(!el)return;el.textContent=text;el.classList.toggle("success",success)}
 function setBusy(button,busy,label){button.disabled=busy;button.querySelector("span").textContent=busy?"جارٍ التنفيذ...":label}
 function showToast(text){const el=$("toast");el.textContent=text;el.classList.remove("hidden");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>el.classList.add("hidden"),3500)}
@@ -27,6 +36,13 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
  }catch(error){if(error.name==="AbortError")throw new Error("انتهت مهلة الاتصال بالخادم.");throw error}
  finally{clearTimeout(timer)}
 }
+$("openCollegeSettings").addEventListener("click",openCollegeSettings);
+$("closeCollegeSettings").addEventListener("click",closeCollegeSettings);
+$("collegeSettingsModal").addEventListener("click",e=>{if(e.target===$("collegeSettingsModal"))closeCollegeSettings()});
+$("activeCollegeSelect").addEventListener("change",e=>{collegeSettings.active=e.target.value;saveCollegeSettings()});
+$("addCollegeButton").addEventListener("click",()=>{const input=$("newCollegeName"),name=input.value.trim();if(!name){$("collegeSettingsNote").textContent="اكتب اسم الكلية أولاً.";return}if(collegeSettings.colleges.some(x=>x.toLowerCase()===name.toLowerCase())){$("collegeSettingsNote").textContent="هذه الكلية مضافة بالفعل.";return}collegeSettings.colleges.push(name);collegeSettings.active=name;input.value="";$("collegeSettingsNote").textContent="تمت إضافة الكلية وحفظها على هذا المتصفح.";saveCollegeSettings()});
+$("collegeList").addEventListener("click",e=>{const btn=e.target.closest("[data-remove-college]");if(!btn)return;const name=decodeURIComponent(btn.dataset.removeCollege);collegeSettings.colleges=collegeSettings.colleges.filter(x=>x!==name);if(!collegeSettings.colleges.length)collegeSettings.colleges=[DEFAULT_COLLEGE];if(collegeSettings.active===name)collegeSettings.active=collegeSettings.colleges[0];saveCollegeSettings()});
+applyCollegeBranding();
 $("studentRole").addEventListener("click",()=>selectRole("student"));
 $("adminRole").addEventListener("click",()=>selectRole("admin"));
 $("togglePassword").addEventListener("click",()=>{$("password").type=$("password").type==="password"?"text":"password"});
