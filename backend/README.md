@@ -17,6 +17,7 @@ This backend uses a **private Google Sheet only as its storage layer**. Students
    - Who has access: **Anyone** (required because the student website is hosted separately on GitHub Pages; the app itself still requires a valid account/session for private data).
    - Deploy and copy the URL ending in `/exec`.
 7. Put that exact URL into `appsScriptUrl` in `src/config.js`. Commit the change to `main`; GitHub Actions will build and publish the site.
+8. Owner portal: open the website with `?panel=owner` at the end of its address. Sign in with username `Owner` and the private password set in Script Properties. Do not share this admin link or password with students.
 
 ## Database tabs
 
