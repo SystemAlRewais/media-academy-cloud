@@ -124,6 +124,7 @@ function openWorkspace(){
  $("welcomeName").textContent="مرحباً، "+(currentUser.name||currentUser.fullName||"بك");
  $("workspaceDescription").textContent=currentUser.role==="admin"?"إدارة الأكاديمية ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات الأكاديمية.";
  $("sidebarRole").textContent=currentUser.role==="admin"?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";\n const collegeButton=$("openCollegeSettings");if(collegeButton)collegeButton.classList.toggle("hidden",currentUser.role!=="admin");
+ if(currentUser.role==="admin")loadCollegeSettings().catch(()=>{});
  const cohortControl=$("cohortSelector");
  if(cohortControl){cohortControl.classList.toggle("hidden",currentUser.role!=="admin");cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
