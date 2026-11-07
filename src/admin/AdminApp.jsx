@@ -22,9 +22,9 @@ export default function AdminApp({onExit}) {
     } catch(e){setError(errorText(e));}
     finally{setLoading(false);}
   };
-  useEffect(()=>{if(getSessionToken()) {api('me').then(r=>setUser(r.user)).catch(()=>{});}},[]);
+  useEffect(()=>{if(getSessionToken()) {api('me').then(r=>{if(['owner','super_admin','admin','staff'].includes(r.user?.role))setUser(r.user);else setError('هذا الحساب ليس لديه صلاحية دخول الإدارة.');}).catch(()=>setError('انتهت الجلسة، سجل الدخول مرة أخرى.'));}},[]);
   useEffect(()=>{if(user)load(section);},[user,section]);
-  const submitLogin=async e=>{e.preventDefault();setLoading(true);setError('');try{setUser(await login(email,password));}catch(err){setError(errorText(err));}finally{setLoading(false);}};
+  const submitLogin=async e=>{e.preventDefault();setLoading(true);setError('');try{const logged=await login(email,password);if(!['owner','super_admin','admin','staff'].includes(logged?.role)){await logout();throw new Error('ADMIN_REQUIRED');}setUser(logged);}catch(err){setError(errorText(err));}finally{setLoading(false);}};
   const addStudent=async e=>{e.preventDefault();setLoading(true);try{await api('saveStudent',{data:student});setShowAdd(false);setStudent({full_name:'',student_code:'',email:'',phone:'',cohort_id:'',department:'',initial_password:''});load('students');}catch(err){setError(errorText(err));}finally{setLoading(false);}};
   const doLogout=async()=>{await logout();setUser(null);};
   if(!user)return <div className="admin-login" dir="rtl"><button className="admin-back" onClick={onExit}><X size={17}/> رجوع لبوابة الطالب</button><form className="admin-login-card" onSubmit={submitLogin}><div className="admin-logo"><GraduationCap/></div><span>MEDIA ACADEMY CLOUD</span><h1>دخول الإدارة</h1><p>سجل الدخول بحساب إداري معتمد.</p><label>البريد الإلكتروني<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>كلمة المرور<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>{error&&<div className="admin-error">{error}</div>}<button className="admin-primary" disabled={loading}>{loading?'جارٍ التحقق...':'تسجيل الدخول'}</button><small>يتطلب ربط رابط Google Apps Script وإعداد حساب المالك أولاً.</small></form></div>;
