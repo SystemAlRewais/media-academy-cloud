@@ -33,7 +33,7 @@ const TABLES = {
 };
 const PUBLIC_ACTIONS = ['health','login','bootstrapStatus'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
-const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','listExams','saveExam','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions','listManagers','saveManager'];
+const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','listExams','saveExam','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','closeAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions','listManagers','saveManager'];
 
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
@@ -106,6 +106,7 @@ function dispatch_(action, req, user) {
     case 'listAttendance': return listRows_('Attendance', user, r => isAdmin_(user) || r.student_id === user.user_id);
     case 'openAttendanceSessions': return openAttendanceSessions_(user);
     case 'createAttendanceSession': requireAdmin_(user); return createAttendanceSession_(req,user);
+    case 'closeAttendanceSession': return closeAttendanceSession_(req,user);
     case 'checkIn': return checkIn_(req, user);
     case 'listGrades': { const result=listRows_('Grades',user,r=>isAdmin_(user)||r.student_id===user.user_id); result.data=result.data.map(g=>{const subject=findById_('Subjects','subject_id',g.subject_id);const exam=findById_('Exams','exam_id',g.exam_id);return Object.assign({},g,{subject_name:subject?subject.name:'',exam_title:exam?exam.title:''})});return result; }
     case 'listExams': requireAdmin_(user); return listRows_('Exams',user);
@@ -470,6 +471,13 @@ function createAttendanceSession_(req,user) {
   delete d.code;
   d.status='open';
   return saveRow_('AttendanceSessions',d,user,'session_id');
+}
+function closeAttendanceSession_(req,user) {
+  requireAdmin_(user);
+  const session=findById_('AttendanceSessions','session_id',req.session_id);
+  if(!session||session.institution_id!==user.institution_id)throw new Error('SESSION_NOT_FOUND');
+  if(session.status!=='open')throw new Error('SESSION_ALREADY_CLOSED');
+  return updateRow_('AttendanceSessions',{session_id:session.session_id,status:'closed'},user,'session_id');
 }
 function studentCanAttendLecture_(lecture,user) {
   return !!lecture && lecture.institution_id===user.institution_id && (isAdmin_(user) || !lecture.cohort_id || lecture.cohort_id===user.cohort_id);
