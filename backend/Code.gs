@@ -98,7 +98,7 @@ function dispatch_(action, req, user) {
     case 'saveAnnouncement': return saveAnnouncement_(req,user);
     case 'studentProfile': return studentProfile_(req.student_id || user.user_id, user);
     case 'disciplineHistory': return disciplineHistory_(req.student_id || user.user_id, user);
-    case 'recordDiscipline': requireAdmin_(user); return saveRow_('Discipline', req.data, user, 'event_id');
+    case 'recordDiscipline': return saveDiscipline_(req,user);
     case 'forumRooms': return forumRooms_(user);
     case 'forumFeed': return forumFeed_(req, user);
     case 'createForumPost': return createForumPost_(req, user);
@@ -358,8 +358,22 @@ function changeStudentCohort_(req,user) {
   requireAdmin_(user);
   const student = findById_('Users','user_id',req.student_id);
   if (!student || student.institution_id !== user.institution_id || student.role !== 'student') throw new Error('STUDENT_NOT_FOUND');
+  activeCohort_(req.cohort_id,user);
   student.cohort_id = req.cohort_id; student.updated_at = new Date().toISOString();
   return saveRow_('Users',student,user,'user_id');
+}
+function saveDiscipline_(req,user) {
+  requireAdmin_(user);
+  const d=Object.assign({},req.data||{});
+  const student=findById_('Users','user_id',d.student_id);
+  if(!student||student.institution_id!==user.institution_id||student.role!=='student')throw new Error('STUDENT_NOT_FOUND');
+  if(!d.title||!d.event_type)throw new Error('DISCIPLINE_FIELDS_REQUIRED');
+  d.student_code=student.student_code;
+  d.recorded_by=user.user_id;
+  d.recorded_at=new Date().toISOString();
+  d.visibility=d.visibility||'admin';
+  d.status=d.status||'active';
+  return saveRow_('Discipline',d,user,'event_id');
 }
 function studentProfile_(id,user) {
   if (!isAdmin_(user) && user.user_id !== id) throw new Error('FORBIDDEN');
@@ -372,7 +386,9 @@ function disciplineHistory_(id,user) {
   return {ok:true,data:rows_('Discipline').filter(r=>r.student_id===id && r.institution_id===user.institution_id && (isAdmin_(user)||r.visibility!=='admin'))};
 }
 function saveCohort_(req,user) {
+  requireAdmin_(user);
   const d=Object.assign({},req.data||{});
+  if(!d.name)throw new Error('COHORT_NAME_REQUIRED');
   const result=saveRow_('Cohorts',d,user,'cohort_id');
   const cohortId=result.id;
   const exists=rows_('ForumRooms').some(r=>r.institution_id===user.institution_id && r.cohort_id===cohortId);
