@@ -2,6 +2,7 @@
 "use strict";
 const cfg = window.MEDIA_ACADEMY_CONFIG || {API_BASE_URL:"",REQUEST_TIMEOUT_MS:15000};
 const $ = id => document.getElementById(id);
+const isAdminUser = () => !!currentUser && (currentUser.role === "admin" || currentUser.role === "owner");
 let role = "student", token = null, currentUser = null, activeSection = "home";
 const COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 let selectedCohort=sessionStorage.getItem("ma_admin_cohort")||"__all__";
@@ -15,7 +16,7 @@ const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",c
 const DEFAULT_COLLEGE = "كلية الإعلام – جامعة الأزهر";
 let collegeSettings={colleges:[DEFAULT_COLLEGE],active:DEFAULT_COLLEGE};
 async function loadCollegeSettings(){
- if(!currentUser||currentUser.role!=="admin")throw new Error("إعدادات الكليات متاحة للإدارة العامة فقط.");
+ if(!currentUser||!isAdminUser())throw new Error("إعدادات الكليات متاحة للإدارة العامة فقط.");
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
  const values=Object.fromEntries(rows.map(x=>[String(x.key),String(x.value||"")]));
  let colleges;try{colleges=JSON.parse(values.college_list||"[]")}catch{colleges=[]}
@@ -57,11 +58,11 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
   if(method==="GET"){
    const params=new URLSearchParams({path});
    if(auth&&token) params.set("token",token);
-   if(auth&&currentUser&&currentUser.role==="admin"&&selectedCohort) params.set("cohort",selectedCohort);
+   if(auth&&currentUser&&isAdminUser()&&selectedCohort) params.set("cohort",selectedCohort);
    response=await fetch(url+"?"+params.toString(),{method:"GET",headers:{Accept:"application/json"},signal:controller.signal});
   }else{
    const payload=body?{...body}:{};
-   if(auth&&currentUser&&currentUser.role==="admin"&&selectedCohort) payload.cohort=selectedCohort;
+   if(auth&&currentUser&&isAdminUser()&&selectedCohort) payload.cohort=selectedCohort;
    if(path==="/auth/login") payload.action="login";
    else if(path==="/auth/register") payload.action="register";
    else payload.path=path;
@@ -98,7 +99,7 @@ $("loginForm").addEventListener("submit",async e=>{
  try{
   const data=await api("/auth/login",{method:"POST",auth:false,body:{identity,password,role,remember:$("remember").checked}});
   if(!data.token||!data.user)throw new Error("استجابة تسجيل الدخول غير مكتملة من الخادم.");
-  if(data.user.role&&data.user.role!==role)throw new Error("نوع الحساب لا يطابق بوابة الدخول المختارة.");
+  if(data.user.role && (role==="admin" ? !["admin","owner"].includes(data.user.role) : data.user.role!=="student")) throw new Error("نوع الحساب لا يطابق بوابة الدخول المختارة.");
   token=data.token;currentUser=data.user;activeSection="home";
   if($("remember").checked)sessionStorage.setItem("ma_session",JSON.stringify({token,user:currentUser}));
   openWorkspace();
@@ -120,26 +121,26 @@ $("registerForm").addEventListener("submit",async e=>{
 });
 function openWorkspace(){
  $("authPage").classList.add("hidden");$("appPage").classList.remove("hidden");
- $("workspaceLabel").textContent=currentUser.role==="admin"?"لوحة إدارة الأكاديمية":"مساحة الطالب";
+ $("workspaceLabel").textContent=isAdminUser()?"لوحة إدارة الأكاديمية":"مساحة الطالب";
  $("welcomeName").textContent="مرحباً، "+(currentUser.name||currentUser.fullName||"بك");
- $("workspaceDescription").textContent=currentUser.role==="admin"?"إدارة الأكاديمية ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات الأكاديمية.";
- $("sidebarRole").textContent=currentUser.role==="admin"?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";
- const collegeButton=$("openCollegeSettings");if(collegeButton)collegeButton.classList.toggle("hidden",currentUser.role!=="admin");
- if(currentUser.role==="admin")loadCollegeSettings().catch(()=>{});
+ $("workspaceDescription").textContent=isAdminUser()?"إدارة الأكاديمية ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات الأكاديمية.";
+ $("sidebarRole").textContent=isAdminUser()?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";
+ const collegeButton=$("openCollegeSettings");if(collegeButton)collegeButton.classList.toggle("hidden",!isAdminUser());
+ if(isAdminUser())loadCollegeSettings().catch(()=>{});
  const cohortControl=$("cohortSelector");
- if(cohortControl){cohortControl.classList.toggle("hidden",currentUser.role!=="admin");cohortControl.value=selectedCohort;}
+ if(cohortControl){cohortControl.classList.toggle("hidden",!isAdminUser());cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
  renderNav();loadSection("home");
 }
 function renderNav(){
- const nav=currentUser.role==="admin"?adminNav:studentNav;
+ const nav=isAdminUser()?adminNav:studentNav;
  $("sideNav").innerHTML=nav.map(([id,label,icon])=>'<button type="button" data-section="'+id+'" class="'+(activeSection===id?"active":"")+'"><span class="nav-ico">'+icon+'</span>'+label+'</button>').join("");
  $("sideNav").querySelectorAll("button").forEach(button=>button.addEventListener("click",()=>loadSection(button.dataset.section)));
 }
 async function loadSection(section){
  activeSection=section;renderNav();$("sectionEyebrow").textContent=sectionNames[section]||"ACADEMY";$("workspaceView").innerHTML='<div class="loading-state">جارٍ تحميل البيانات...</div>';
  try{
-  const data=await api("/api/"+(currentUser.role==="admin"?"admin":"student")+"/"+section);
+  const data=await api("/api/"+(isAdminUser()?"admin":"student")+"/"+section);
   renderSection(section,data);
  }catch(err){$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل القسم</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>'}
 }
@@ -211,7 +212,7 @@ function renderSection(section,data){
   $("workspaceView").innerHTML='<h2 class="dashboard-title">'+title+'</h2><div class="data-table-wrap"><table class="data-table"><tbody>'+Object.entries(fields).filter(([k])=>!["password","token","password_hash","password_salt"].includes(k.toLowerCase())).map(([k,v])=>'<tr><th>'+escapeHtml(k)+'</th><td>'+escapeHtml(v)+'</td></tr>').join("")+'</tbody></table></div>';return;
  }
  const rows=Array.isArray(data.items)?data.items:(Array.isArray(data[section])?data[section]:[]);
- const admin=currentUser.role==="admin"||currentUser.role==="owner";
+ const admin=isAdminUser()||currentUser.role==="owner";
  const defs=fieldDefs(section);
  const canManage=admin&&(section==="settings"||COHORTS.includes(selectedCohort)||(section==="students"&&selectedCohort==="__unassigned__"));
  const canCreate=admin&&(section==="settings"||COHORTS.includes(selectedCohort));
