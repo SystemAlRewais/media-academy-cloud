@@ -275,20 +275,27 @@ function saveManager_(req,user) {
 function saveStudent_(req,user) {
   requireAdmin_(user);
   const d = Object.assign({},req.data || {});
+  d.full_name = String(d.full_name || '').trim();
+  d.student_code = String(d.student_code || '').trim();
   if (!d.full_name || !d.student_code) throw new Error('NAME_AND_STUDENT_CODE_REQUIRED');
-  const duplicate=rows_('Users').find(x=>x.institution_id===user.institution_id && x.user_id!==d.user_id && (String(x.student_code).toLowerCase()===String(d.student_code).toLowerCase() || (d.email && String(x.email).toLowerCase()===String(d.email).toLowerCase())));
+  const duplicate=rows_('Users').find(x=>x.institution_id===user.institution_id && x.user_id!==d.user_id && (String(x.student_code||'').toLowerCase()===d.student_code.toLowerCase() || (d.email && String(x.email||'').toLowerCase()===String(d.email).trim().toLowerCase())));
   if (duplicate) throw new Error('STUDENT_CODE_OR_EMAIL_EXISTS');
   if (!d.user_id) {
     if (String(d.initial_password || '').length < 8) throw new Error('STUDENT_PASSWORD_TOO_SHORT');
     const salt = Utilities.getUuid();
     d.user_id = Utilities.getUuid(); d.password_salt = salt;
     d.password_hash = hash_(String(d.initial_password),salt);
+    d.username = d.student_code;
     d.role = 'student'; d.status = 'active'; d.created_at = new Date().toISOString();
   } else {
     const existing = findById_('Users','user_id',d.user_id);
     if (!existing || existing.institution_id !== user.institution_id || existing.role !== 'student') throw new Error('STUDENT_NOT_FOUND');
-    d.institution_id = existing.institution_id; d.role = 'student';
+    d.institution_id = existing.institution_id; d.role = 'student'; d.username = d.student_code;
     d.password_hash = existing.password_hash; d.password_salt = existing.password_salt; d.created_at = existing.created_at;
+    if (d.initial_password) {
+      if (String(d.initial_password).length < 8) throw new Error('STUDENT_PASSWORD_TOO_SHORT');
+      const salt = Utilities.getUuid(); d.password_salt = salt; d.password_hash = hash_(String(d.initial_password),salt);
+    }
   }
   d.institution_id = user.institution_id;
   delete d.initial_password; d.updated_at = new Date().toISOString();
