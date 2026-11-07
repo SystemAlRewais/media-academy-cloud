@@ -33,7 +33,7 @@ const TABLES = {
 };
 const PUBLIC_ACTIONS = ['health','login','bootstrapStatus'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
-const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions','listManagers','saveManager'];
+const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','listLectures','listAttendanceSessions','listExams','saveExam','saveStudent','changeStudentCohort','saveCohort','saveSubject','saveLecture','saveForumRoom','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions','listManagers','saveManager'];
 
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
@@ -108,7 +108,9 @@ function dispatch_(action, req, user) {
     case 'createAttendanceSession': requireAdmin_(user); return createAttendanceSession_(req,user);
     case 'checkIn': return checkIn_(req, user);
     case 'listGrades': return listRows_('Grades', user, r => isAdmin_(user) || r.student_id === user.user_id);
-    case 'saveGrade': requireAdmin_(user); return saveRow_('Grades', req.data, user, 'grade_id');
+    case 'listExams': requireAdmin_(user); return listRows_('Exams',user);
+    case 'saveExam': requireAdmin_(user); return saveRow_('Exams',req.data,user,'exam_id');
+    case 'saveGrade': requireAdmin_(user); return saveGrade_(req,user);
     case 'listTickets': return listRows_('SupportTickets', user, r => isAdmin_(user) || r.student_id === user.user_id);
     case 'createTicket': return createTicket_(req, user);
     case 'updateTicket': requireAdmin_(user); return updateRow_('SupportTickets', req.data, user, 'ticket_id');
@@ -415,6 +417,23 @@ function distanceMeters_(lat1,lon1,lat2,lon2) {
   const rad=x=>x*Math.PI/180, dLat=rad(lat2-lat1),dLon=rad(lon2-lon1);
   const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
   return 6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function saveGrade_(req,user) {
+  const d=Object.assign({},req.data||{});
+  const student=findById_('Users','user_id',d.student_id);
+  if(!student || student.institution_id!==user.institution_id || student.role!=='student') throw new Error('STUDENT_NOT_FOUND');
+  if(d.subject_id) {
+    const subject=findById_('Subjects','subject_id',d.subject_id);
+    if(!subject || subject.institution_id!==user.institution_id) throw new Error('SUBJECT_NOT_FOUND');
+  }
+  if(d.exam_id) {
+    const exam=findById_('Exams','exam_id',d.exam_id);
+    if(!exam || exam.institution_id!==user.institution_id) throw new Error('EXAM_NOT_FOUND');
+  }
+  const score=Number(d.score),total=Number(d.total_marks);
+  if(!isFinite(score)||!isFinite(total)||total<=0||score<0||score>total) throw new Error('INVALID_GRADE');
+  d.published_at=d.published_at||new Date().toISOString();
+  return saveRow_('Grades',d,user,'grade_id');
 }
 function createTicket_(req,user) {
   if (!req.subject || !req.body) throw new Error('SUBJECT_AND_BODY_REQUIRED');
