@@ -200,7 +200,10 @@ function updateRecord_(section,id,record,user,selectedCohort) {
     if(!Number.isFinite(lat)||Math.abs(lat)>90||!Number.isFinite(lon)||Math.abs(lon)>180) throw new Error("إحداثيات موقع الجلسة غير صحيحة.");
     if(!Number.isFinite(radius)||radius<10||radius>5000) throw new Error("النطاق المسموح يجب أن يكون بين 10 و5000 متر.");
     if(record.access_code){const salt=Utilities.getUuid();obj.code_salt=salt;obj.code_hash=hash_(record.access_code,salt);}
+    if(record.access_code && String(record.access_code).trim().length<4) throw new Error("كود جلسة الحضور يجب ألا يقل عن 4 أحرف.");
     delete obj.access_code;obj.latitude=lat;obj.longitude=lon;obj.radius_meters=radius;
+    if(record.opens_at!==undefined)obj.opens_at=new Date(record.opens_at).toISOString();
+    if(record.closes_at!==undefined)obj.closes_at=new Date(record.closes_at).toISOString();
   }
   const cohortKey=cohortField_(section);
   if(cohortKey && selectedCohort && selectedCohort!=="__unassigned__") obj[cohortKey]=selectedCohort;
