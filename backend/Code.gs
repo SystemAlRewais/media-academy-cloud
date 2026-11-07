@@ -32,6 +32,7 @@ const TABLES = {
 };
 const PUBLIC_ACTIONS = ['health','login','bootstrapStatus'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
+const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','saveStudent','changeStudentCohort','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog'];
 
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
@@ -64,6 +65,7 @@ function route_(req) {
     if (action === 'bootstrapStatus') return {ok:true,initialized:!!findUserByEmail_(prop_('BOOTSTRAP_EMAIL'))};
     if (action === 'login') return login_(req);
     const user = authorize_(req.token, action);
+    if (ADMIN_ONLY_ACTIONS.indexOf(action) >= 0) requireAdmin_(user);
     if (action === 'logout') { CacheService.getScriptCache().remove('sess_' + req.token); return {ok:true}; }
     return dispatch_(action, req, user);
   } catch (err) {
@@ -140,9 +142,9 @@ function setupInitialOwner() {
   return 'Initial owner created. Temporary bootstrap password property removed.';
 }
 function login_(req) {
-  const email = String(req.email || '').trim().toLowerCase();
+  const identifier = String(req.identifier || req.email || '').trim().toLowerCase();
   const password = String(req.password || '');
-  const user = findUserByEmail_(email);
+  const user = findUserByLogin_(identifier);
   if (!user || user.status !== 'active' || hash_(password,user.password_salt) !== user.password_hash) throw new Error('INVALID_CREDENTIALS');
   const token = Utilities.getUuid() + Utilities.getUuid();
   CacheService.getScriptCache().put('sess_' + token, user.user_id, 21600);
@@ -159,6 +161,7 @@ function authorize_(token, action) {
   return user;
 }
 function findUserByEmail_(email) { if (!email) return null; return rows_('Users').find(r => String(r.email).toLowerCase() === String(email).toLowerCase()) || null; }
+function findUserByLogin_(identifier) { if (!identifier) return null; const key=String(identifier).toLowerCase(); return rows_('Users').find(r => String(r.email||'').toLowerCase()===key || String(r.student_code||'').toLowerCase()===key) || null; }
 function findById_(table,key,value) { return rows_(table).find(r => String(r[key]) === String(value)) || null; }
 function rows_(table) {
   const sh = db_().getSheetByName(table);
