@@ -1,10 +1,8 @@
 /** Media Academy Cloud — Google Apps Script backend.
- * Configure Script Properties before setup:
- * SPREADSHEET_ID = ID of the private Google Sheet
- * BOOTSTRAP_EMAIL = first owner email
- * BOOTSTRAP_PASSWORD = temporary owner password (12+ characters)
- * Run setupInitialOwner() once from the Apps Script editor.
- * The owner creates all student accounts later from the admin panel.
+ * The private Google Sheet is configured in db_().
+ * Deploy as a Web App (execute as owner; access: anyone).
+ * First owner account is created once from the admin portal.
+ * All student and staff accounts are managed inside the admin portal.
  */
 const TABLES = {
   Institutions: ['institution_id','name','slug','status','logo_url','primary_color','created_at'],
@@ -147,8 +145,7 @@ function setupDatabase() {
   return 'Database tabs initialized: ' + Object.keys(TABLES).length;
 }
 function setupInitialOwner() {
-  setupDatabase();
-  throw new Error('OWNER_SETUP_MOVED_TO_ADMIN_PORTAL');
+  return setupDatabase() + ' — create the first owner from the admin portal.';
 }
 function bootstrapOwner_(req) {
   const lock=LockService.getScriptLock();
