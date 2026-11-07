@@ -30,7 +30,7 @@ export default function AuthGate(){
     e.preventDefault();setBusy(true);setError('');
     try{
       const logged=await login(identifier,password);
-      if(ADMIN_ROLES.includes(logged.role)){setAdminUser(logged);return;}
+      if(ADMIN_ROLES.includes(logged.role)){if(!isAdminPortal){await logout();throw new Error('ADMIN_REQUIRED')}setAdminUser(logged);return;}
       if(isAdminPortal){await logout();throw new Error('ADMIN_REQUIRED');}
       if(logged.role!=='student'){await logout();throw new Error('ACCOUNT_ROLE_INVALID');}
       setUser(logged);
