@@ -362,7 +362,7 @@ function coordinatesFromMapsUrl_(url) {
   if(!/^https?:\/\//i.test(current))throw new Error('INVALID_MAPS_LINK');
   for(let i=0;i<5;i++) {
     const host=(current.match(/^https?:\/\/([^/]+)/i)||[])[1]||'';
-    if(!/(^|\\.)google\\.[a-z.]+$/i.test(host) && !/(^|\\.)goo\\.gl$/i.test(host))throw new Error('INVALID_MAPS_LINK');
+    if(!/(^|\.)google\.[a-z.]+$/i.test(host) && !/(^|\.)goo\.gl$/i.test(host))throw new Error('INVALID_MAPS_LINK');
     const found=extractMapCoordinates_(current);
     if(found)return found;
     try {
