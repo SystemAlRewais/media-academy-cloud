@@ -32,7 +32,7 @@ const TABLES = {
 };
 const PUBLIC_ACTIONS = ['health','login','bootstrapStatus'];
 const ADMIN_ROLES = ['owner','super_admin','admin','staff'];
-const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','saveStudent','changeStudentCohort','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog'];
+const ADMIN_ONLY_ACTIONS = ['dashboard','listStudents','listDiscipline','listForumPosts','saveStudent','changeStudentCohort','saveContent','saveAnnouncement','recordDiscipline','createAttendanceSession','saveGrade','updateTicket','auditLog','saveSetting','saveInstitution','listInstitutions'];
 
 function doGet(e) {
   const callback = e && e.parameter && e.parameter.callback;
@@ -138,6 +138,8 @@ function setupInitialOwner() {
   const id = Utilities.getUuid();
   sh.appendRow([id,'default','', 'Platform Owner',email,'',hash_(password,salt),salt,'owner','','','active','',new Date().toISOString(),new Date().toISOString()]);
   db_().getSheetByName('Institutions').appendRow(['default','Main Academy','main','active','','#35d6c1',new Date().toISOString()]);
+  const rooms = db_().getSheetByName('ForumRooms');
+  if (rooms.getLastRow() < 2) rooms.appendRow([Utilities.getUuid(),'default','','المنتدى العام','general','active',new Date().toISOString()]);
   PropertiesService.getScriptProperties().deleteProperty('BOOTSTRAP_PASSWORD');
   return 'Initial owner created. Temporary bootstrap password property removed.';
 }
@@ -177,20 +179,26 @@ function listRows_(table,user,filter) {
   return {ok:true,data:data};
 }
 function saveRow_(table,data,user,idKey) {
-  if (!data || typeof data !== 'object') throw new Error('INVALID_DATA');
+  if (!TABLES[table] || !data || typeof data !== 'object' || Array.isArray(data)) throw new Error('INVALID_DATA');
   const record = Object.assign({},data);
   const id = record[idKey] || Utilities.getUuid();
   record[idKey] = id;
-  if (TABLES[table].indexOf('institution_id') >= 0 && table !== 'Institutions') record.institution_id = user.institution_id;
   const sh = db_().getSheetByName(table);
+  if (!sh) throw new Error('TABLE_NOT_FOUND');
   const headers = TABLES[table];
   const all = sh.getDataRange().getValues();
   let rowIndex = -1;
   for (let i=1;i<all.length;i++) if (String(all[i][headers.indexOf(idKey)]) === String(id)) { rowIndex=i+1; break; }
-  if (rowIndex < 0) { rowIndex=sh.getLastRow()+1; }
-  const row = headers.map(h => record[h] === undefined ? '' : record[h]);
+  const isCreate = rowIndex < 0;
+  if (!isCreate && user && table !== 'Institutions') {
+    const institutionCol = headers.indexOf('institution_id');
+    if (institutionCol >= 0 && String(all[rowIndex-1][institutionCol]) !== String(user.institution_id)) throw new Error('FORBIDDEN');
+  }
+  if (isCreate) rowIndex=sh.getLastRow()+1;
+  if (headers.indexOf('institution_id') >= 0 && table !== 'Institutions' && user) record.institution_id = user.institution_id;
+  const row = headers.map(h => record[h] === undefined ? (isCreate ? '' : all[rowIndex-1][headers.indexOf(h)]) : record[h]);
   sh.getRange(rowIndex,1,1,headers.length).setValues([row]);
-  audit_(user,rowIndex===sh.getLastRow()?'CREATE':'UPDATE',table,id,{});
+  audit_(user,isCreate?'CREATE':'UPDATE',table,id,{});
   return {ok:true,id:id};
 }
 function updateRow_(table,data,user,idKey) { return saveRow_(table,data,user,idKey); }
@@ -199,11 +207,18 @@ function saveStudent_(req,user) {
   const d = Object.assign({},req.data || {});
   if (!d.full_name || !d.student_code) throw new Error('NAME_AND_STUDENT_CODE_REQUIRED');
   if (!d.user_id) {
+    if (String(d.initial_password || '').length < 8) throw new Error('STUDENT_PASSWORD_TOO_SHORT');
     const salt = Utilities.getUuid();
     d.user_id = Utilities.getUuid(); d.password_salt = salt;
-    d.password_hash = hash_(String(d.initial_password || Utilities.getUuid()),salt);
-    d.role = 'student'; d.status = d.status || 'active'; d.created_at = new Date().toISOString();
+    d.password_hash = hash_(String(d.initial_password),salt);
+    d.role = 'student'; d.status = 'active'; d.created_at = new Date().toISOString();
+  } else {
+    const existing = findById_('Users','user_id',d.user_id);
+    if (!existing || existing.institution_id !== user.institution_id || existing.role !== 'student') throw new Error('STUDENT_NOT_FOUND');
+    d.institution_id = existing.institution_id; d.role = 'student';
+    d.password_hash = existing.password_hash; d.password_salt = existing.password_salt; d.created_at = existing.created_at;
   }
+  d.institution_id = user.institution_id;
   delete d.initial_password; d.updated_at = new Date().toISOString();
   return saveRow_('Users',d,user,'user_id');
 }
@@ -234,7 +249,6 @@ function forumFeed_(req,user) {
 function createForumPost_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
   if (!room || room.institution_id!==user.institution_id || room.status!=='active') throw new Error('ROOM_NOT_AVAILABLE');
-  if (room.cohort_id && room.cohort_id!==user.cohort_id && !isAdmin_(user)) throw new Error('ROOM_ACCESS_DENIED');
   if (!String(req.body||'').trim()) throw new Error('EMPTY_POST');
   return saveRow_('ForumPosts',{post_id:Utilities.getUuid(),room_id:req.room_id,author_id:user.user_id,body:String(req.body).slice(0,5000),attachment_url:'',created_at:new Date().toISOString(),status:'active'},user,'post_id');
 }
@@ -259,7 +273,9 @@ function checkIn_(req,user) {
   if (session.opens_at && now < new Date(session.opens_at).getTime()) throw new Error('SESSION_NOT_OPEN');
   if (session.closes_at && now > new Date(session.closes_at).getTime()) throw new Error('SESSION_CLOSED');
   if (hash_(String(req.code||''),session.session_id)!==session.secret_code_hash) throw new Error('INVALID_ATTENDANCE_CODE');
+  if (user.role !== 'student') throw new Error('STUDENT_ACCOUNT_REQUIRED');
   const lat=Number(req.latitude), lon=Number(req.longitude);
+  if (!isFinite(lat) || !isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) throw new Error('INVALID_LOCATION');
   const distance=distanceMeters_(lat,lon,Number(session.latitude),Number(session.longitude));
   if (!isFinite(distance) || distance>Number(session.radius_meters)) throw new Error('OUTSIDE_ALLOWED_AREA');
   if (rows_('Attendance').some(a=>a.session_id===session.session_id && a.student_id===user.user_id)) throw new Error('ALREADY_CHECKED_IN');
