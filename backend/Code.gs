@@ -55,7 +55,7 @@ function doPost(e) {
 function json_(data) { return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON); }
 function parseRequest_(e) {
   try {
-    if (e.parameter && e.parameter.q) return JSON.parse(decodeURIComponent(Utilities.newBlob(Utilities.base64DecodeWebSafe(e.parameter.q)).getDataAsString()));
+    if (e.parameter && e.parameter.q) return JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(e.parameter.q)).getDataAsString());
     return {action:(e.parameter && e.parameter.action) || 'health'};
   } catch (err) { return {action:'invalid'}; }
 }
