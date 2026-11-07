@@ -125,8 +125,7 @@ function dispatch_(action, req, user) {
   }
 }
 function db_() {
-  const id = prop_('SPREADSHEET_ID');
-  if (!id) throw new Error('SPREADSHEET_ID_NOT_CONFIGURED');
+  const id = '11_AlAxy147RlG96pBh1l9C3rD5lG0SHkrSEODfvQ9qs';
   return SpreadsheetApp.openById(id);
 }
 function prop_(key) { return PropertiesService.getScriptProperties().getProperty(key) || ''; }
