@@ -16,9 +16,11 @@ export default function AuthGate(){
 
   useEffect(()=>{
     if(!APP_CONFIG.appsScriptUrl||!getSessionToken()){setChecking(false);return;}
-    api('me').then(r=>{
-      if(ADMIN_ROLES.includes(r.user?.role))setAdminUser(r.user);
-      else setUser(r.user);
+    api('me').then(async r=>{
+      const admin=ADMIN_ROLES.includes(r.user?.role);
+      if(admin&&!isAdminPortal){await logout();setError('استخدم بوابة الإدارة الخاصة للدخول.');return;}
+      if(!admin&&isAdminPortal){await logout();setError('هذا الحساب غير مصرح له بدخول الإدارة.');return;}
+      if(admin)setAdminUser(r.user);else setUser(r.user);
     }).catch(()=>logout()).finally(()=>setChecking(false));
   },[]);
 
