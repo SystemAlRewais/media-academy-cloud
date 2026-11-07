@@ -1,4 +1,4 @@
-name: Deploy Media Academy Cloud to GitHub Pages
+name: Deploy Media Academy Cloud
 
 on:
   push:
@@ -18,26 +18,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Explicitly initialize/enable the Pages site before attempting deployment.
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build Vite app
-        run: npm run build
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Prepare static site
+        run: |
+          mkdir -p dist
+          cp index.html dist/index.html
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
