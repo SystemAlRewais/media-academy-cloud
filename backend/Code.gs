@@ -88,7 +88,7 @@ function dispatch_(action, req, user) {
     case 'saveCohort': return saveCohort_(req,user);
     case 'listSubjects': return listRows_('Subjects', user, r => isAdmin_(user) || !r.cohort_id || r.cohort_id === user.cohort_id);
     case 'saveSubject': return saveSubject_(req,user);
-    case 'listLectures': return listRows_('Lectures',user);
+    case 'listLectures': return listRows_('Lectures',user,r=>isAdmin_(user)||!r.cohort_id||r.cohort_id===user.cohort_id);
     case 'saveLecture': return saveLecture_(req,user);
     case 'saveForumRoom': return saveForumRoom_(req,user);
     case 'listAttendanceSessions': return listRows_('AttendanceSessions',user);
