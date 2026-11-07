@@ -75,7 +75,10 @@ function dispatch_(action, req, user) {
   switch (action) {
     case 'me': return {ok:true,user:safeUser_(user)};
     case 'dashboard': return dashboard_(user);
-    case 'listStudents': return listRows_('Users', user, r => r.role === 'student' && (!req.cohort_id || r.cohort_id === req.cohort_id));
+    case 'listStudents': { const result=listRows_('Users', user, r => r.role === 'student' && (!req.cohort_id || r.cohort_id === req.cohort_id)); result.data=result.data.map(safeUser_); return result; }
+    case 'listDiscipline': requireAdmin_(user); return listRows_('Discipline',user);
+    case 'listForumPosts': requireAdmin_(user); return listRows_('ForumPosts',user);
+    case 'listMessages': return listRows_('Messages',user,r=>r.sender_id===user.user_id||r.recipient_id===user.user_id||isAdmin_(user));
     case 'saveStudent': return saveStudent_(req, user);
     case 'changeStudentCohort': return changeStudentCohort_(req, user);
     case 'listCohorts': return listRows_('Cohorts', user);
