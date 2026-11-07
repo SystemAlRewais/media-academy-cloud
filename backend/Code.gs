@@ -111,7 +111,7 @@ function dispatch_(action, req, user) {
     case 'createTicket': return createTicket_(req, user);
     case 'updateTicket': requireAdmin_(user); return updateRow_('SupportTickets', req.data, user, 'ticket_id');
     case 'listInstitutions': requireRole_(user, ['owner','super_admin']); return listRows_('Institutions', user);
-    case 'saveInstitution': requireRole_(user, ['owner','super_admin']); return saveRow_('Institutions', req.data, user, 'institution_id');
+    case 'saveInstitution': requireRole_(user, ['owner','super_admin']); return saveRow_('Institutions', Object.assign({},req.data||{},{institution_id:(req.data&&req.data.institution_id)||Utilities.getUuid()}), user, 'institution_id');
     case 'auditLog': requireAdmin_(user); return listRows_('AuditLog', user);
     case 'saveSetting': requireRole_(user, ['owner','super_admin']); return saveSetting_(req, user);
     default: throw new Error('UNKNOWN_ACTION');
