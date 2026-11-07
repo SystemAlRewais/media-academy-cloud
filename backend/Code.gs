@@ -155,6 +155,16 @@ function createRecord_(section,record,user,selectedCohort) {
   }
   const id = Utilities.getUuid();
   const obj = {...record,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(section==="attendance_sessions") {
+    const code=String(record.access_code||"").trim(),lat=Number(record.latitude),lon=Number(record.longitude),radius=Number(record.radius_meters);
+    const opens=new Date(record.opens_at).getTime(),closes=new Date(record.closes_at).getTime();
+    if(code.length<4) throw new Error("كود جلسة الحضور يجب ألا يقل عن 4 أحرف.");
+    if(!validMapsUrl_(record.location_url)) throw new Error("أدخل رابط موقع Google Maps صحيحاً.");
+    if(!Number.isFinite(lat)||Math.abs(lat)>90||!Number.isFinite(lon)||Math.abs(lon)>180) throw new Error("إحداثيات موقع الجلسة غير صحيحة.");
+    if(!Number.isFinite(radius)||radius<10||radius>5000) throw new Error("النطاق المسموح يجب أن يكون بين 10 و5000 متر.");
+    if(!Number.isFinite(opens)||!Number.isFinite(closes)||opens>=closes) throw new Error("حدد وقت بداية ونهاية صحيحين للجلسة.");
+    const salt=Utilities.getUuid();obj.session_id=id;delete obj.id;obj.code_salt=salt;obj.code_hash=hash_(code,salt);delete obj.access_code;obj.latitude=lat;obj.longitude=lon;obj.radius_meters=radius;obj.created_by=user.username||user.id;
+  }
   const cohortKey = cohortField_(section);
   if (cohortKey && selectedCohort === "__unassigned__") throw new Error("لا يمكن إنشاء سجل جديد داخل قائمة الطلاب غير المسندين.");
   if (cohortKey && selectedCohort) obj[cohortKey] = selectedCohort;
@@ -176,10 +186,18 @@ function updateRecord_(section,id,record,user,selectedCohort) {
     audit_(user,"update",section,id,record); return {message:"تم تحديث الإعداد."};
   }
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
-  const idx=headers.indexOf("id"), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
+  const idx=headers.indexOf(recordIdField_(section)), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
   assertRecordCohort_(section, values, headers, row, selectedCohort);
   const obj={...record,updated_at:new Date().toISOString()};
+  if(section==="attendance_sessions") {
+    const lat=record.latitude===undefined?Number(values[row][headers.indexOf("latitude")]):Number(record.latitude), lon=record.longitude===undefined?Number(values[row][headers.indexOf("longitude")]):Number(record.longitude), radius=record.radius_meters===undefined?Number(values[row][headers.indexOf("radius_meters")]):Number(record.radius_meters);
+    if(record.location_url!==undefined && !validMapsUrl_(record.location_url)) throw new Error("أدخل رابط موقع Google Maps صحيحاً.");
+    if(!Number.isFinite(lat)||Math.abs(lat)>90||!Number.isFinite(lon)||Math.abs(lon)>180) throw new Error("إحداثيات موقع الجلسة غير صحيحة.");
+    if(!Number.isFinite(radius)||radius<10||radius>5000) throw new Error("النطاق المسموح يجب أن يكون بين 10 و5000 متر.");
+    if(record.access_code){const salt=Utilities.getUuid();obj.code_salt=salt;obj.code_hash=hash_(record.access_code,salt);}
+    delete obj.access_code;obj.latitude=lat;obj.longitude=lon;obj.radius_meters=radius;
+  }
   const cohortKey=cohortField_(section);
   if(cohortKey && selectedCohort && selectedCohort!=="__unassigned__") obj[cohortKey]=selectedCohort;
   if(section==="students" && selectedCohort==="__unassigned__" && !COHORTS.includes(String(record.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب قبل حفظه.");
@@ -195,7 +213,7 @@ function deleteRecord_(section,id,user,selectedCohort) {
     const row=v.findIndex((r,i)=>i>0&&String(r[kc])===String(id)); if(row<1) throw new Error("الإعداد غير موجود.");
     sh.deleteRow(row+1); audit_(user,"delete",section,id,{}); return {message:"تم حذف الإعداد."};
   }
-  const sh=db_().getSheetByName(SECTION_SHEET[section]),v=sh.getDataRange().getValues(),headers=v[0].map(String),idx=headers.indexOf("id");
+  const sh=db_().getSheetByName(SECTION_SHEET[section]),v=sh.getDataRange().getValues(),headers=v[0].map(String),idx=headers.indexOf(recordIdField_(section));
   const row=v.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
   assertRecordCohort_(section,v,headers,row,selectedCohort);
@@ -306,6 +324,7 @@ function ensureDatabaseSafe_(){
   }
 }
 
+function recordIdField_(section) { return section === "attendance_sessions" ? "session_id" : "id"; }
 function cohortField_(section) {
   if (section === "announcements") return "target_cohort";
   if (section === "attendance_sessions") return "cohort";
