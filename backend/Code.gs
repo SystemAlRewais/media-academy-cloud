@@ -170,10 +170,18 @@ function setupInitialOwner() {
 function login_(req) {
   const identifier = String(req.identifier || req.email || '').trim().toLowerCase();
   const password = String(req.password || '');
+  const cache=CacheService.getScriptCache();
+  const attemptKey='login_fail_'+hash_(identifier,'attempts').slice(0,32);
+  const attempts=Number(cache.get(attemptKey)||0);
+  if(attempts>=5) throw new Error('TOO_MANY_ATTEMPTS');
   const user = findUserByLogin_(identifier);
-  if (!user || user.status !== 'active' || hash_(password,user.password_salt) !== user.password_hash) throw new Error('INVALID_CREDENTIALS');
+  if (!user || user.status !== 'active' || hash_(password,user.password_salt) !== user.password_hash) {
+    cache.put(attemptKey,String(attempts+1),900);
+    throw new Error('INVALID_CREDENTIALS');
+  }
+  cache.remove(attemptKey);
   const token = Utilities.getUuid() + Utilities.getUuid();
-  CacheService.getScriptCache().put('sess_' + token, user.user_id, 21600);
+  cache.put('sess_' + token, user.user_id, 21600);
   audit_(user,'LOGIN','Users',user.user_id,{});
   return {ok:true,token,user:safeUser_(user),expires_in:21600};
 }
