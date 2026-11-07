@@ -124,14 +124,14 @@ function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":
 function fieldDefs(section){
  const common={status:{label:"الحالة",type:"select",options:["active","inactive","pending","published","draft"]},cohort:{label:"الفرقة",type:"text"},department:{label:"القسم",type:"text"}};
  const defs={
- students:[["student_code","كود الطالب"],["full_name","الاسم بالكامل"],["username","اسم المستخدم"],["email","البريد الإلكتروني","email"],["phone","رقم الهاتف"],["password","كلمة المرور","password"],["cohort","الفرقة"],["department","القسم"],["status","الحالة","select",["pending","active","inactive","rejected"]]],
+ students:[["student_code","كود الطالب"],["full_name","الاسم بالكامل"],["username","اسم المستخدم"],["email","البريد الإلكتروني","email"],["phone","رقم الهاتف"],["password","كلمة المرور","password"],["cohort","الفرقة","select",["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"]],["department","القسم"],["status","الحالة","select",["pending","active","inactive","rejected"]]],
  courses:[["title","اسم المادة"],["description","الوصف","textarea"],["cohort","الفرقة"],["department","القسم"],["teacher","اسم المدرس"],["sort_order","الترتيب","number"],["status","الحالة","select",["active","inactive"]]],
  materials:[["title","عنوان الكتاب أو الملف"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["status","الحالة","select",["active","inactive"]]],
  lectures:[["title","عنوان المحاضرة"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["teacher","المدرس"],["lecture_date","التاريخ","date"],["start_time","من الساعة","time"],["end_time","إلى الساعة","time"],["room","القاعة"],["meeting_url","رابط المحاضرة","url"],["status","الحالة","select",["active","inactive"]]],
  exams:[["title","اسم الامتحان"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["start_at","موعد البداية","datetime-local"],["end_at","موعد النهاية","datetime-local"],["duration_minutes","المدة بالدقائق","number"],["status","الحالة","select",["draft","published","closed"]]],
  results:[["exam_id","معرّف الامتحان"],["student_id","معرّف الطالب"],["student_code","كود الطالب"],["cohort","الفرقة"],["score","الدرجة","number"],["max_score","النهاية العظمى","number"],["notes","ملاحظات","textarea"],["published","منشور","select",["true","false"]]],
  attendance:[["student_id","معرّف الطالب"],["student_code","كود الطالب"],["lecture_id","معرّف المحاضرة"],["attendance_date","التاريخ","date"],["check_in","وقت الحضور","time"],["status","الحالة","select",["present","absent","late"]],["notes","ملاحظات","textarea"]],
- announcements:[["title","عنوان الإعلان"],["body","نص الإعلان","textarea"],["target_cohort","الفرقة المستهدفة"],["status","الحالة","select",["draft","published"]],["publish_at","موعد النشر","datetime-local"],["expire_at","انتهاء الإعلان","datetime-local"]],
+ announcements:[["title","عنوان الإعلان"],["body","نص الإعلان","textarea"],["target_cohort","الفرقة المستهدفة","select",["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"]],["status","الحالة","select",["draft","published"]],["publish_at","موعد النشر","datetime-local"],["expire_at","انتهاء الإعلان","datetime-local"]],
  complaints:[["subject","موضوع الشكوى"],["message","نص الشكوى","textarea"],["reply","رد الإدارة","textarea"],["status","الحالة","select",["new","in_progress","resolved","archived"]]],
  settings:[["key","اسم الإعداد"],["value","القيمة","textarea"]]
  };
@@ -178,7 +178,7 @@ async function mutateRecord(section,action,id,record){
 async function saveRecord(e){
  e.preventDefault();const form=e.currentTarget,section=form.dataset.section,id=form.dataset.id||"",record={};
  fieldDefs(section).forEach(f=>{const el=form.elements[f.name];if(el&&el.value!==""&&!(f.name==="password"&&!el.value))record[f.name]=el.value});
- if(["students","courses","materials","lectures","exams","results","attendance","complaints"].includes(section))record.cohort=selectedCohort;
+ if(["students","courses","materials","lectures","exams","results","attendance","complaints"].includes(section)&&selectedCohort!=="__unassigned__")record.cohort=selectedCohort;
  if(section==="announcements")record.target_cohort=selectedCohort;
  const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
  try{
