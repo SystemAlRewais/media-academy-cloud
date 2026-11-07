@@ -16,7 +16,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      - run: mkdir -p dist && cp index.html dist/index.html && touch dist/.nojekyll
+      - name: Build complete site
+        run: |
+          mkdir -p dist
+          cp index.html dist/index.html
+          cp -R assets dist/assets
+          touch dist/.nojekyll
+          test -f dist/assets/css/style.css
+          test -f dist/assets/js/config.js
+          test -f dist/assets/js/app.js
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
