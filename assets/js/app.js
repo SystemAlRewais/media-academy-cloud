@@ -3,11 +3,13 @@
 const cfg = window.MEDIA_ACADEMY_CONFIG || {API_BASE_URL:"",REQUEST_TIMEOUT_MS:15000};
 const $ = id => document.getElementById(id);
 let role = "student", token = null, currentUser = null, activeSection = "home";
+const COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
+let selectedCohort=sessionStorage.getItem("ma_admin_cohort")||"__all__";
 const studentNav = [
  ["home","الرئيسية","⌂"],["profile","ملفي الشخصي","◉"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات","▶"],["schedule","جدول المحاضرات","▦"],["exams","الامتحانات والدرجات","✧"],["attendance","الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"]
 ];
 const adminNav = [
- ["home","لوحة التحكم","⌂"],["students","إدارة الطلاب","♙"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات والجداول","▶"],["exams","الامتحانات والنتائج","✧"],["attendance","سجل الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"],["settings","إعدادات النظام والحضور","⚙"]
+ ["home","لوحة التحكم","⌂"],["students","إدارة الطلاب","♙"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات والجداول","▶"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","سجل الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"],["settings","إعدادات النظام والحضور","⚙"]
 ];
 const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
 const COLLEGE_STORAGE_KEY = "media_academy_colleges_v1";
@@ -34,9 +36,11 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
   if(method==="GET"){
    const params=new URLSearchParams({path});
    if(auth&&token) params.set("token",token);
+   if(auth&&currentUser&&currentUser.role==="admin"&&selectedCohort) params.set("cohort",selectedCohort);
    response=await fetch(url+"?"+params.toString(),{method:"GET",headers:{Accept:"application/json"},signal:controller.signal});
   }else{
    const payload=body?{...body}:{};
+   if(auth&&currentUser&&currentUser.role==="admin"&&selectedCohort) payload.cohort=selectedCohort;
    if(path==="/auth/login") payload.action="login";
    else if(path==="/auth/register") payload.action="register";
    else payload.path=path;
@@ -98,7 +102,9 @@ function openWorkspace(){
  $("workspaceLabel").textContent=currentUser.role==="admin"?"لوحة إدارة الأكاديمية":"مساحة الطالب";
  $("welcomeName").textContent="مرحباً، "+(currentUser.name||currentUser.fullName||"بك");
  $("workspaceDescription").textContent=currentUser.role==="admin"?"إدارة الأكاديمية ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات الأكاديمية.";
- $("sidebarRole").textContent=currentUser.role==="admin"?"ADMIN PORTAL":"STUDENT PORTAL";
+ $("sidebarRole").textContent=currentUser.role==="admin"?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";
+ const cohortControl=$("cohortSelector");
+ if(cohortControl){cohortControl.classList.toggle("hidden",currentUser.role!=="admin");cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
  renderNav();loadSection("home");
 }
@@ -123,6 +129,7 @@ function fieldDefs(section){
  materials:[["title","عنوان الكتاب أو الملف"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["status","الحالة","select",["active","inactive"]]],
  lectures:[["title","عنوان المحاضرة"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["teacher","المدرس"],["lecture_date","التاريخ","date"],["start_time","من الساعة","time"],["end_time","إلى الساعة","time"],["room","القاعة"],["meeting_url","رابط المحاضرة","url"],["status","الحالة","select",["active","inactive"]]],
  exams:[["title","اسم الامتحان"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["start_at","موعد البداية","datetime-local"],["end_at","موعد النهاية","datetime-local"],["duration_minutes","المدة بالدقائق","number"],["status","الحالة","select",["draft","published","closed"]]],
+ results:[["exam_id","معرّف الامتحان"],["student_id","معرّف الطالب"],["student_code","كود الطالب"],["cohort","الفرقة"],["score","الدرجة","number"],["max_score","النهاية العظمى","number"],["notes","ملاحظات","textarea"],["published","منشور","select",["true","false"]]],
  attendance:[["student_id","معرّف الطالب"],["student_code","كود الطالب"],["lecture_id","معرّف المحاضرة"],["attendance_date","التاريخ","date"],["check_in","وقت الحضور","time"],["status","الحالة","select",["present","absent","late"]],["notes","ملاحظات","textarea"]],
  announcements:[["title","عنوان الإعلان"],["body","نص الإعلان","textarea"],["target_cohort","الفرقة المستهدفة"],["status","الحالة","select",["draft","published"]],["publish_at","موعد النشر","datetime-local"],["expire_at","انتهاء الإعلان","datetime-local"]],
  complaints:[["subject","موضوع الشكوى"],["message","نص الشكوى","textarea"],["reply","رد الإدارة","textarea"],["status","الحالة","select",["new","in_progress","resolved","archived"]]],
@@ -144,8 +151,9 @@ function renderSection(section,data){
  const admin=currentUser.role==="admin"||currentUser.role==="owner";
  const defs=fieldDefs(section);
  let html='<div class="section-toolbar"><h2>'+title+'</h2>';
- if(admin && defs.length) html+='<button type="button" class="small-primary" data-create>＋ إضافة جديد</button>';
+ if(admin && defs.length && selectedCohort!=="__all__") html+='<button type="button" class="small-primary" data-create>＋ إضافة جديد</button>';
  html+='</div>';
+ if(admin) html+='<p class="section-note">نطاق الإدارة الحالي: <b>'+escapeHtml(selectedCohort==="__all__"?"كل الفرق (عرض فقط)":selectedCohort)+'</b>'+(selectedCohort==="__all__"?" — اختر فرقة من القائمة أعلى الصفحة لتفعيل الإضافة والتعديل والحذف.":" — بيانات هذا القسم وإجراءاته مرتبطة بهذه الفرقة فقط.")+'</p>';
  if(admin && (section==="materials"||section==="lectures")) html+='<p class="section-note">لإضافة كتاب أو ملف، اضغط «إضافة جديد» ثم اختر ملف PDF أو مستند من جهازك.</p>';
  if(admin && defs.length) html+='<div id="recordEditor" class="record-editor hidden"><h3 id="editorTitle">إضافة سجل</h3><form id="recordForm" class="record-form" data-section="'+section+'"><div class="record-fields">'+defs.map(f=>'<label class="field-label">'+escapeHtml(f.label)+(f.type==="password"?' (اختياري عند التعديل)':'')+(f.type==="textarea"?'<textarea name="'+f.name+'" class="form-input" rows="3"></textarea>':f.type==="select"?'<select name="'+f.name+'" class="form-input">'+f.options.map(o=>'<option value="'+o+'">'+o+'</option>').join("")+'</select>':'<input class="form-input" name="'+f.name+'" type="'+f.type+'" '+(f.name==="password"?'':'')+' >')+'</label>').join("")+((section==="materials"||section==="lectures")?'<label class="field-label">ملف للرفع إلى Google Drive<input class="form-input" type="file" name="uploadFile" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png"></label>':'')+'</div><div class="editor-actions"><button class="small-primary" type="submit">حفظ</button><button class="small-primary" type="button" data-cancel>إلغاء</button></div><p class="section-note" id="editorMessage"></p></form></div>';
  if(!rows.length){html+='<div class="empty-state"><div class="empty-symbol">◇</div><b>لا توجد بيانات حتى الآن</b><p class="section-note">'+(admin?'ابدأ بإضافة أول سجل من الزر الموجود بالأعلى.':'ستظهر البيانات هنا بعد إضافتها واعتمادها من الإدارة.')+'</p></div>';$("workspaceView").innerHTML=html;const emptyEditor=$("recordEditor"),emptyForm=$("recordForm");if(emptyEditor&&emptyForm){$("workspaceView").querySelector("[data-create]").addEventListener("click",()=>{emptyForm.reset();emptyForm.dataset.id="";$("editorTitle").textContent="إضافة سجل جديد";emptyEditor.classList.remove("hidden")});emptyForm.addEventListener("submit",saveRecord);emptyForm.addEventListener("click",e=>{if(e.target.closest("[data-cancel]"))emptyEditor.classList.add("hidden")})}return}
@@ -159,7 +167,7 @@ function renderSection(section,data){
   form.addEventListener("click",e=>{if(e.target.closest("[data-cancel]"))editor.classList.add("hidden")});
   $("workspaceView").querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const row=rows.find(x=>String(x.id)===b.dataset.edit);if(!row)return;form.reset();form.dataset.id=row.id;defs.forEach(f=>{const el=form.elements[f.name];if(el&&f.name!=="password")el.value=row[f.name]??""});$("editorTitle").textContent="تعديل البيانات";editor.classList.remove("hidden")}));
   $("workspaceView").querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",async()=>{if(!confirm("هل تريد حذف هذا السجل نهائياً؟"))return;await mutateRecord(section,"delete",b.dataset.delete,{});loadSection(section)}));
-  $("workspaceView").querySelectorAll("[data-approve],[data-reject]").forEach(b=>b.addEventListener("click",async()=>{const action=b.dataset.approve?"approve":"reject";await api("/api/admin/"+section,{method:"POST",body:{action,section,id:b.dataset.approve||b.dataset.reject}});showToast(action==="approve"?"تم اعتماد الطالب":"تم رفض الطلب");loadSection(section)}));
+  $("workspaceView").querySelectorAll("[data-approve],[data-reject]").forEach(b=>b.addEventListener("click",async()=>{const action=b.dataset.approve?"approve":"reject";await api("/api/admin/"+section,{method:"POST",body:{action,section,id:b.dataset.approve||b.dataset.reject,cohort:selectedCohort}});showToast(action==="approve"?"تم اعتماد الطالب":"تم رفض الطلب");loadSection(section)}));
  }
 }
 async function mutateRecord(section,action,id,record){
@@ -169,6 +177,8 @@ async function mutateRecord(section,action,id,record){
 async function saveRecord(e){
  e.preventDefault();const form=e.currentTarget,section=form.dataset.section,id=form.dataset.id||"",record={};
  fieldDefs(section).forEach(f=>{const el=form.elements[f.name];if(el&&el.value!==""&&!(f.name==="password"&&!el.value))record[f.name]=el.value});
+ if(["students","courses","materials","lectures","exams","results","attendance","complaints"].includes(section))record.cohort=selectedCohort;
+ if(section==="announcements")record.target_cohort=selectedCohort;
  const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
  try{
   if(section==="materials"||section==="lectures"){
@@ -184,6 +194,8 @@ async function saveRecord(e){
   showToast(id?"تم تحديث السجل بنجاح":"تمت إضافة السجل بنجاح");loadSection(section);
  }catch(err){msg.textContent=err.message}
 }
+const cohortSelector=$("cohortSelector");
+if(cohortSelector){cohortSelector.addEventListener("change",()=>{selectedCohort=cohortSelector.value;sessionStorage.setItem("ma_admin_cohort",selectedCohort);loadSection(activeSection);});}
 $("logoutButton").addEventListener("click",()=>{token=null;currentUser=null;sessionStorage.removeItem("ma_session");$("appPage").classList.add("hidden");$("authPage").classList.remove("hidden");$("loginForm").reset();message("loginMessage","");selectRole("student");window.scrollTo({top:0,behavior:"smooth"})});
 const saved=sessionStorage.getItem("ma_session");
 if(saved){try{const session=JSON.parse(saved);if(session.token&&session.user){token=session.token;currentUser=session.user;openWorkspace()}}catch{sessionStorage.removeItem("ma_session")}}
