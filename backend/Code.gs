@@ -370,7 +370,7 @@ function coordinatesFromMapsUrl_(url) {
   if(!/^https?:\/\//i.test(current))throw new Error('INVALID_MAPS_LINK');
   for(let i=0;i<5;i++) {
     const host=(current.match(/^https?:\/\/([^/]+)/i)||[])[1]||'';
-    if(!/(^|\.)google\.[a-z.]+$/i.test(host) && !/(^|\.)goo\.gl$/i.test(host))throw new Error('INVALID_MAPS_LINK');
+    if(!/(^|\.)google\.[a-z.]+$/i.test(host) && !/(^|\.)goo\.gl$/i.test(host) && host.toLowerCase()!=='maps.app.goo.gl')throw new Error('INVALID_MAPS_LINK');
     const found=extractMapCoordinates_(current);
     if(found)return found;
     try {
@@ -403,19 +403,28 @@ function createAttendanceSession_(req,user) {
   d.status='open';
   return saveRow_('AttendanceSessions',d,user,'session_id');
 }
+function studentCanAttendLecture_(lecture,user) {
+  return !!lecture && lecture.institution_id===user.institution_id && (isAdmin_(user) || !lecture.cohort_id || lecture.cohort_id===user.cohort_id);
+}
 function openAttendanceSessions_(user) {
   const now=Date.now();
-  const data=rows_('AttendanceSessions').filter(s=>s.institution_id===user.institution_id && s.status==='open' && (!s.opens_at || now>=new Date(s.opens_at).getTime()) && (!s.closes_at || now<=new Date(s.closes_at).getTime())).map(s=>{const l=findById_('Lectures','lecture_id',s.lecture_id);return {session_id:s.session_id,lecture_title:l?l.title:'محاضرة',opens_at:s.opens_at,closes_at:s.closes_at};});
+  const data=rows_('AttendanceSessions').filter(s=>{
+    const lecture=findById_('Lectures','lecture_id',s.lecture_id);
+    return s.institution_id===user.institution_id && s.status==='open' && studentCanAttendLecture_(lecture,user) &&
+      (!s.opens_at || now>=new Date(s.opens_at).getTime()) && (!s.closes_at || now<=new Date(s.closes_at).getTime());
+  }).map(s=>{const l=findById_('Lectures','lecture_id',s.lecture_id);return {session_id:s.session_id,lecture_title:l?l.title:'محاضرة',opens_at:s.opens_at,closes_at:s.closes_at};});
   return {ok:true,data:data};
 }
 function checkIn_(req,user) {
+  if (user.role !== 'student') throw new Error('STUDENT_ACCOUNT_REQUIRED');
   const session = findById_('AttendanceSessions','session_id',req.session_id);
   if (!session || session.institution_id!==user.institution_id || session.status!=='open') throw new Error('SESSION_CLOSED');
+  const lecture=findById_('Lectures','lecture_id',session.lecture_id);
+  if(!studentCanAttendLecture_(lecture,user)) throw new Error('LECTURE_NOT_AVAILABLE_FOR_STUDENT');
   const now = Date.now();
   if (session.opens_at && now < new Date(session.opens_at).getTime()) throw new Error('SESSION_NOT_OPEN');
   if (session.closes_at && now > new Date(session.closes_at).getTime()) throw new Error('SESSION_CLOSED');
   if (hash_(String(req.code||''),session.session_id)!==session.secret_code_hash) throw new Error('INVALID_ATTENDANCE_CODE');
-  if (user.role !== 'student') throw new Error('STUDENT_ACCOUNT_REQUIRED');
   const lat=Number(req.latitude), lon=Number(req.longitude);
   if (!isFinite(lat) || !isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) throw new Error('INVALID_LOCATION');
   const distance=distanceMeters_(lat,lon,Number(session.latitude),Number(session.longitude));
