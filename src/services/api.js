@@ -40,8 +40,8 @@ export async function api(action, data = {}, options = {}) {
   return result;
 }
 
-export async function login(email, password) {
-  const result = await api('login', { email, password }, { public: true });
+export async function login(identifier, password) {
+  const result = await api('login', { identifier, password }, { public: true });
   saveSessionToken(result.token);
   return result.user;
 }
