@@ -156,7 +156,7 @@ function createRecord_(section,record,user,selectedCohort) {
   const id = Utilities.getUuid();
   const obj = {...record,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   if(section==="attendance_sessions") {
-    const code=String(record.access_code||"").trim(),coords=coordinatesFromMapsUrl_(record.location_url),lat=Number.isFinite(Number(record.latitude))?Number(record.latitude):coords.latitude,lon=Number.isFinite(Number(record.longitude))?Number(record.longitude):coords.longitude,radius=Number(record.radius_meters);
+    const code=String(record.access_code||"").trim(); let lat=Number(record.latitude),lon=Number(record.longitude); if(!Number.isFinite(lat)||!Number.isFinite(lon)){const coords=coordinatesFromMapsUrl_(record.location_url);if(!Number.isFinite(lat))lat=coords.latitude;if(!Number.isFinite(lon))lon=coords.longitude;} const radius=Number(record.radius_meters);
     const opens=new Date(record.opens_at).getTime(),closes=new Date(record.closes_at).getTime();
     if(code.length<4) throw new Error("كود جلسة الحضور يجب ألا يقل عن 4 أحرف.");
     if(!validMapsUrl_(record.location_url)) throw new Error("أدخل رابط موقع Google Maps صحيحاً.");
