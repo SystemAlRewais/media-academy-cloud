@@ -70,9 +70,10 @@ function doPost(e) {
     if (path === "/auth/register" || data.action === "register") return register_(data);
     const user = authenticate_(data.token);
     if (!user) return out({success:false,message:"يلزم تسجيل الدخول مرة أخرى."});
-    if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const action = String(data.action || "");
     const section = String(data.section || path.split("/").pop() || "");
+    if (user.role === "student" && action === "submit_complaint") return submitComplaint_(data,user);
+    if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const selectedCohort = String(data.cohort || "").trim();
     if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !COHORTS.includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
     if (section !== "settings" && ["create","update","delete","approve","reject"].includes(action) && (!selectedCohort || selectedCohort === "__all__")) return out({success:false,message:"اختر فرقة محددة قبل تنفيذ الإضافة أو التعديل أو الحذف."});
@@ -202,6 +203,15 @@ function setStudentStatus_(id,status,user,selectedCohort) {
   if(status==="active" && cohortCol>=0 && !String(v[row][cohortCol]||"").trim()) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
   sh.getRange(row+1,sc+1).setValue(status);if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());
   audit_(user,status,"students",id,{});return {message:status==="active"?"تم اعتماد الطالب.":"تم رفض الطلب."};
+}
+function submitComplaint_(data,user) {
+  const subject=String(data.subject||"").trim(), message=String(data.message||"").trim();
+  if(!subject || !message) return out({success:false,message:"اكتب موضوع الشكوى وتفاصيلها."});
+  if(!user.cohort) return out({success:false,message:"لا توجد فرقة مرتبطة بحسابك. تواصل مع الإدارة."});
+  const id=Utilities.getUuid(), now=new Date().toISOString();
+  appendObject_("Complaints",{id,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,subject,message,reply:"",status:"new",created_at:now,updated_at:now});
+  audit_(user,"create","complaints",id,{subject});
+  return out({success:true,message:"تم إرسال الشكوى إلى الإدارة.",id});
 }
 function upload_(d,user) {
   const name=String(d.name || "file"), mime=String(d.mimeType || "application/pdf"), b64=String(d.base64 || "");
