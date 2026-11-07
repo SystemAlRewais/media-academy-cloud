@@ -333,7 +333,8 @@ function saveCohort_(req,user) {
   if (!exists) saveRow_('ForumRooms',{room_id:Utilities.getUuid(),cohort_id:cohortId,name:d.name||'منتدى الفرقة',room_type:'cohort',status:'active',created_at:new Date().toISOString()},user,'room_id');
   return result;
 }
-function canAccessRoom_(room,user) { return !!room && room.institution_id===user.institution_id && (isAdmin_(user) || !room.cohort_id || room.cohort_id===user.cohort_id); }\nfunction forumRooms_(user) { return {ok:true,data:rows_('ForumRooms').filter(r=>r.status==='active' && canAccessRoom_(r,user))}; }
+function canAccessRoom_(room,user) { return !!room && room.institution_id===user.institution_id && (isAdmin_(user) || !room.cohort_id || room.cohort_id===user.cohort_id); }
+function forumRooms_(user) { return {ok:true,data:rows_('ForumRooms').filter(r=>r.status==='active' && canAccessRoom_(r,user))}; }
 function forumFeed_(req,user) {
   const room = findById_('ForumRooms','room_id',req.room_id);
   if (!canAccessRoom_(room,user)) throw new Error('ROOM_NOT_FOUND');
