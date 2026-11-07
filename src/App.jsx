@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, Bell, BookOpen, CalendarDays, CheckCircle2,
   ChevronDown, ChevronLeft, CircleHelp, Clock3, FileText, GraduationCap,
@@ -8,6 +8,7 @@ import {
   MessageSquareText, Pin, ThumbsUp, Heart, Image, Smile, Video, Mic
 } from 'lucide-react';
 import { APP_CONFIG, COHORTS } from './config.js';
+import { api } from './services/api.js';
 import AdminApp from './admin/AdminApp.jsx';
 
 const initialMessages = [
@@ -113,13 +114,37 @@ function Forum({posts,cohortFilter,setCohortFilter,activeForum,setActiveForum,se
     </section></div>;
 }
 
-function Discipline() {
-  return <><div className="discipline-banner"><div className="discipline-emblem"><ShieldCheck size={34}/></div><div><span>السجل الانضباطي</span><h2>موقفك الانضباطي: سليم</h2><p>يظهر هنا أي تنبيه أو مخالفة أو إجراء رسمي تم تسجيله على كود الطالب.</p></div><span className="status-good">لا توجد مخالفات</span></div><div className="stats-grid"><Stat icon={ShieldCheck} label="مخالفات مسجلة" value="0" note="حتى تاريخ اليوم" tone="green"/><Stat icon={AlertTriangle} label="تنبيهات" value="0" note="لا توجد تنبيهات نشطة" tone="gold"/><Stat icon={FileText} label="إجراءات رسمية" value="0" note="لا توجد قرارات" tone="blue"/><Stat icon={CheckCircle2} label="حالة الملف" value="سليم" note="لا توجد إجراءات معلقة" tone="purple"/></div><div className="panel"><div className="panel-head"><div><h3>السجل التاريخي للأحداث</h3><p>كل ما تم تسجيله على ملفك الجامعي بالترتيب الزمني</p></div><span className="private-label"><Shield size={13}/> مرئي للطالب والإدارة المخولة</span></div><div className="timeline"><div className="timeline-item"><span className="timeline-dot green-dot"/><div><b>إنشاء الملف الجامعي</b><p>تم تسجيل الطالب على النظام وإصدار الكود الجامعي.</p><small>سبتمبر ٢٠٢٤ <i>•</i> حدث إداري</small></div><span className="event-chip">معلومة</span></div><div className="timeline-item"><span className="timeline-dot blue-dot"/><div><b>تأكيد القيد للعام الدراسي 2026 / 2027</b><p>تم تحديث حالة القيد إلى طالب منتظم.</p><small>أكتوبر ٢٠٢٦ <i>•</i> تحديث حالة</small></div><span className="event-chip">تحديث</span></div></div><div className="notice-box"><Shield size={17}/><span>أي مخالفة مستقبلية يجب أن تتضمن تاريخ الواقعة، وصفها، الجهة المسجلة، الإجراء المتخذ، وحالة التظلم. لا يُسجل جزاء نهائي إلا بواسطة صلاحية إدارية معتمدة.</span></div></div></>;
+function useRemoteRows(action) {
+  const [rows,setRows]=useState([]),[busy,setBusy]=useState(true),[error,setError]=useState('');
+  useEffect(()=>{let live=true;api(action).then(r=>{if(live)setRows(r.data||[])}).catch(e=>{if(live)setError(e.message||'تعذر تحميل البيانات')}).finally(()=>{if(live)setBusy(false)});return()=>{live=false}},[action]);
+  return {rows,busy,error};
 }
-
-function Study() { return <div className="content-grid"><div className="panel"><div className="panel-head"><div><h3>المحتوى الدراسي</h3><p>المراجع والكتب الخاصة بفرقتك</p></div><span className="private-label">الفرقة الثالثة</span></div>{['مدخل إلى الإعلام الرقمي','نظريات الاتصال','التسويق الإلكتروني','إنتاج المحتوى المرئي'].map((x,i)=><div className="document-row" key={x}><div className="doc-icon"><BookOpen size={17}/></div><div><b>{x}</b><small>{i+2} ملفات متاحة • آخر تحديث هذا الأسبوع</small></div><ChevronLeft size={15}/></div>)}</div><div className="panel"><div className="panel-head"><div><h3>الامتحانات والتقييم</h3><p>مواعيد ونتائجك</p></div></div><div className="empty-state compact"><CalendarDays size={27}/><b>لا توجد امتحانات قريبة</b><span>ستظهر المواعيد والنتائج هنا عند اعتمادها.</span></div></div></div>; }
-function Attendance() { return <div className="content-grid"><div className="panel"><div className="panel-head"><div><h3>حضور المحاضرات</h3><p>سجل حضورك ومواعيد الجلسات</p></div><span className="status-good">92% حضور</span></div><div className="attendance-card"><div className="attendance-icon"><MapPin/></div><div><b>تسجيل حضور المحاضرة</b><p>عند فتح جلسة الحضور من الإدارة، استخدم الكود والموقع داخل النطاق المحدد.</p></div><button className="btn-primary" onClick={()=>alert('تسجيل الحضور غير متاح في وضع العرض التجريبي')}>تسجيل الحضور</button></div><div className="notice-box"><Shield size={17}/> لا يتم تسجيل موقعك إلا عند طلب تسجيل الحضور وبموافقتك، ويُتحقق من النطاق الجغرافي على الخادم.</div></div><div className="panel"><div className="panel-head"><div><h3>ملخص الحضور</h3><p>الفصل الدراسي الحالي</p></div></div><div className="attendance-summary"><strong>92%</strong><span>نسبة الحضور</span><div className="progress"><i/></div><small>23 حضور • 2 غياب • 0 تأخير</small></div></div></div>; }
-function Announcements() { return <div className="panel"><div className="panel-head"><div><h3>الإعلانات والرسائل</h3><p>التنبيهات الرسمية الموجهة لك</p></div></div>{['تحديث جدول محاضرات الفرقة الثالثة','فتح باب التسجيل في الأنشطة الطلابية','إتاحة مراجع مادة الإعلام الرقمي'].map((x,i)=><div className="notice-row" key={x}><div className="notice-icon teal"><Bell/></div><div className="notice-copy"><b>{x}</b><small>إدارة الأكاديمية • موجه لطلاب الفرقة الثالثة</small><span>{i+1} نوفمبر ٢٠٢٦</span></div></div>)}</div>; }
-function Support({notify}) { const [message,setMessage]=useState(''); return <div className="panel support-panel"><div className="panel-head"><div><h3>الشكاوى والمقترحات</h3><p>صوتك مهم، ابعت رسالتك للإدارة المختصة</p></div></div><label>نوع الطلب<select><option>مقترح</option><option>شكوى</option><option>استفسار</option></select></label><label>عنوان الرسالة<input placeholder="اكتب عنواناً مختصراً"/></label><label>تفاصيل الرسالة<textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder="اكتب تفاصيل طلبك هنا..."/></label><button className="btn-primary" onClick={()=>{if(message.trim()){notify('تم حفظ الطلب في العرض التجريبي');setMessage('')}}}>إرسال الطلب <Send size={15}/></button></div>; }
+function EmptyRemote({busy,error,children}) {
+  if(busy)return <div className="empty-state compact">جارٍ تحميل البيانات...</div>;
+  if(error)return <div className="empty-state compact">{error==='SESSION_EXPIRED'?'انتهت الجلسة، سجل الدخول مرة أخرى.':'تعذر الاتصال بالخادم. حاول تحديث الصفحة.'}</div>;
+  return children;
+}
+function Discipline() {
+  const {rows,busy,error}=useRemoteRows('disciplineHistory');
+  return <div className="panel"><div className="panel-head"><div><h3>السجل التاريخي للأحداث</h3><p>السجلات المعتمدة على ملفك الجامعي</p></div><span className="private-label"><Shield size={13}/> بيانات خاصة</span></div><EmptyRemote busy={busy} error={error}>{rows.length===0?<div className="empty-state compact"><ShieldCheck size={28}/><b>لا توجد أحداث مسجلة</b><span>لا توجد سجلات انضباطية متاحة لملفك حالياً.</span></div>:<div className="timeline">{rows.map((r,i)=><div className="timeline-item" key={r.event_id||i}><span className="timeline-dot blue-dot"/><div><b>{r.title||r.event_type||'حدث انضباطي'}</b><p>{r.description||r.decision||'لا يوجد وصف إضافي'}</p><small>{r.recorded_at||''}</small></div><span className="event-chip">{r.status||'مسجل'}</span></div>)}</div>}</EmptyRemote></div>;
+}
+function Study() {
+  const content=useRemoteRows('listContent'),grades=useRemoteRows('listGrades');
+  return <div className="content-grid"><div className="panel"><div className="panel-head"><div><h3>المحتوى الدراسي</h3><p>المراجع والملفات المتاحة لحسابك</p></div></div><EmptyRemote busy={content.busy} error={content.error}>{content.rows.length===0?<div className="empty-state compact"><BookOpen size={27}/><b>لا يوجد محتوى منشور</b><span>سيظهر المحتوى هنا بعد إضافته من الإدارة.</span></div>:content.rows.map((x,i)=><a className="document-row" key={x.content_id||i} href={x.file_url||undefined} target="_blank" rel="noreferrer"><div className="doc-icon"><BookOpen size={17}/></div><div><b>{x.title||'محتوى دراسي'}</b><small>{x.description||x.content_type||''}</small></div><ChevronLeft size={15}/></a>)}</EmptyRemote></div><div className="panel"><div className="panel-head"><div><h3>الامتحانات والتقييم</h3><p>الدرجات المعتمدة</p></div></div><EmptyRemote busy={grades.busy} error={grades.error}>{grades.rows.length===0?<div className="empty-state compact"><CalendarDays size={27}/><b>لا توجد نتائج منشورة</b><span>ستظهر درجاتك بعد اعتمادها من الإدارة.</span></div>:grades.rows.map((g,i)=><div className="document-row" key={g.grade_id||i}><div className="doc-icon"><Award size={17}/></div><div><b>{g.subject_id||'المادة'}</b><small>{g.score??'—'} من {g.total_marks??'—'}</small></div></div>)}</EmptyRemote></div></div>;
+}
+function Attendance() {
+  const {rows,busy,error}=useRemoteRows('listAttendance');
+  const present=rows.filter(r=>r.status==='present').length;
+  return <div className="content-grid"><div className="panel"><div className="panel-head"><div><h3>سجل حضور المحاضرات</h3><p>عمليات الحضور المسجلة على حسابك</p></div></div><EmptyRemote busy={busy} error={error}>{rows.length===0?<div className="empty-state compact"><MapPin size={27}/><b>لا توجد عمليات حضور مسجلة</b><span>عند فتح جلسة حضور من الإدارة ستظهر هنا بيانات تسجيلك.</span></div>:rows.map((r,i)=><div className="document-row" key={r.attendance_id||i}><div className="doc-icon"><CalendarDays size={17}/></div><div><b>{r.status==='present'?'حضور مثبت':r.status||'حالة الحضور'}</b><small>{r.checked_at||''}</small></div></div>)}</EmptyRemote></div><div className="panel"><div className="panel-head"><div><h3>ملخص الحضور</h3><p>من واقع السجل المسجل</p></div></div><div className="attendance-summary"><strong>{rows.length?Math.round(present/rows.length*100)+'%':'—'}</strong><span>نسبة الحضور المسجلة</span><small>{present} حضور من إجمالي {rows.length} سجل</small></div></div></div>;
+}
+function Announcements() {
+  const {rows,busy,error}=useRemoteRows('listAnnouncements');
+  return <div className="panel"><div className="panel-head"><div><h3>الإعلانات والرسائل</h3><p>الإعلانات الرسمية الموجهة لحسابك</p></div></div><EmptyRemote busy={busy} error={error}>{rows.length===0?<div className="empty-state compact"><Bell size={27}/><b>لا توجد إعلانات حالياً</b></div>:rows.map((x,i)=><div className="notice-row" key={x.announcement_id||i}><div className="notice-icon teal"><Bell/></div><div className="notice-copy"><b>{x.title||'إعلان'}</b><small>{x.body||''}</small><span>{x.created_at||''}</span></div></div>)}</EmptyRemote></div>;
+}
+function Support({notify}) {
+  const [message,setMessage]=useState(''),[subject,setSubject]=useState(''),[category,setCategory]=useState('inquiry'),[busy,setBusy]=useState(false);
+  const send=async()=>{if(!subject.trim()||!message.trim())return;setBusy(true);try{await api('createTicket',{subject,body:message,category});notify('تم إرسال الطلب للإدارة بنجاح');setMessage('');setSubject('')}catch(e){notify(e.message==='SESSION_EXPIRED'?'انتهت الجلسة، سجل الدخول مرة أخرى.':'تعذر إرسال الطلب، حاول مرة أخرى.')}finally{setBusy(false)}};
+  return <div className="panel support-panel"><div className="panel-head"><div><h3>الشكاوى والمقترحات</h3><p>سيصل طلبك إلى لوحة الإدارة</p></div></div><label>نوع الطلب<select value={category} onChange={e=>setCategory(e.target.value)}><option value="suggestion">مقترح</option><option value="complaint">شكوى</option><option value="inquiry">استفسار</option></select></label><label>عنوان الرسالة<input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="اكتب عنواناً مختصراً"/></label><label>تفاصيل الرسالة<textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder="اكتب تفاصيل طلبك هنا..."/></label><button className="btn-primary" disabled={busy||!subject.trim()||!message.trim()} onClick={send}>{busy?'جارٍ الإرسال...':'إرسال الطلب'} <Send size={15}/></button></div>;
+}
 
 export default App;
