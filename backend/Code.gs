@@ -194,6 +194,8 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   const obj={...record,updated_at:new Date().toISOString()};
   if(section==="attendance_sessions") {
     const lat=record.latitude===undefined?Number(values[row][headers.indexOf("latitude")]):Number(record.latitude), lon=record.longitude===undefined?Number(values[row][headers.indexOf("longitude")]):Number(record.longitude), radius=record.radius_meters===undefined?Number(values[row][headers.indexOf("radius_meters")]):Number(record.radius_meters);
+    const opens=record.opens_at===undefined?new Date(values[row][headers.indexOf("opens_at")]).getTime():new Date(record.opens_at).getTime(), closes=record.closes_at===undefined?new Date(values[row][headers.indexOf("closes_at")]).getTime():new Date(record.closes_at).getTime();
+    if(!Number.isFinite(opens)||!Number.isFinite(closes)||opens>=closes) throw new Error("حدد وقت بداية ونهاية صحيحين للجلسة.");
     if(record.location_url!==undefined && !validMapsUrl_(record.location_url)) throw new Error("أدخل رابط موقع Google Maps صحيحاً.");
     if(!Number.isFinite(lat)||Math.abs(lat)>90||!Number.isFinite(lon)||Math.abs(lon)>180) throw new Error("إحداثيات موقع الجلسة غير صحيحة.");
     if(!Number.isFinite(radius)||radius<10||radius>5000) throw new Error("النطاق المسموح يجب أن يكون بين 10 و5000 متر.");
@@ -245,14 +247,18 @@ function checkIn_(data,user) {
   const now=Date.now(), opens=new Date(session.opens_at).getTime(), closes=new Date(session.closes_at).getTime();
   if(!Number.isFinite(opens)||!Number.isFinite(closes)||now<opens||now>closes) return out({success:false,message:"الحضور غير متاح في هذا التوقيت."});
   if(hash_(code,String(session.code_salt||""))!==String(session.code_hash||"")) return out({success:false,message:"كود الحضور غير صحيح."});
-  const attendance=readRows_("Attendance");
-  if(attendance.some(x=>String(x.session_id)===sessionId && String(x.student_id)===String(user.id))) return out({success:false,message:"تم تسجيل حضورك في هذه الجلسة من قبل."});
   const distance=distanceMeters_(latitude,longitude,Number(session.latitude),Number(session.longitude));
   const radius=Number(session.radius_meters);
   if(!Number.isFinite(distance)||!Number.isFinite(radius)||radius<10||radius>5000) return out({success:false,message:"إعدادات موقع الجلسة غير صالحة. راجع الإدارة."});
   if(distance>radius) return out({success:false,message:"أنت خارج النطاق المسموح. المسافة الحالية "+Math.round(distance)+" متر، والنطاق "+radius+" متر."});
-  const checkedAt=new Date(), iso=checkedAt.toISOString(), id=Utilities.getUuid();
-  appendObject_("Attendance",{id,attendance_id:id,session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:iso.slice(0,10),check_in:iso.slice(11,19),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
+  const lock=LockService.getScriptLock();lock.waitLock(10000);
+  let id, iso;
+  try {
+    const attendance=readRows_("Attendance");
+    if(attendance.some(x=>String(x.session_id)===sessionId && String(x.student_id)===String(user.id))) return out({success:false,message:"تم تسجيل حضورك في هذه الجلسة من قبل."});
+    const checkedAt=new Date();iso=checkedAt.toISOString();id=Utilities.getUuid();
+    appendObject_("Attendance",{id,attendance_id:id,session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:iso.slice(0,10),check_in:iso.slice(11,19),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
+  } finally { lock.releaseLock(); }
   audit_(user,"checkin","attendance",id,{session_id:sessionId,distance_meters:Math.round(distance)});
   return out({success:true,message:"تم تسجيل حضورك بنجاح.",distance_meters:Math.round(distance)});
 }
