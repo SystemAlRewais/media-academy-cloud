@@ -172,7 +172,6 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   const cohortKey=cohortField_(section);
   if(cohortKey && selectedCohort && selectedCohort!=="__unassigned__") obj[cohortKey]=selectedCohort;
   if(section==="students" && selectedCohort==="__unassigned__" && !COHORTS.includes(String(record.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب قبل حفظه.");
-  if(section==="students" && selectedCohort==="__unassigned__" && !COHORTS.includes(String(record.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب قبل حفظه.");
   if(obj.password){const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;}
   headers.forEach((h,c)=>{if(Object.prototype.hasOwnProperty.call(obj,h)) sh.getRange(row+1,c+1).setValue(obj[h]);});
   audit_(user,"update",section,id,obj);
