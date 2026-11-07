@@ -48,11 +48,13 @@ function doGet(e) {
       }
     }
     if (user.role === "student") rows = rows.filter(r => {
-      if (section === "results" || section === "attendance" || section === "complaints") return String(r.student_id) === String(user.id);
+      if (section === "results") return String(r.student_id) === String(user.id) && (r.published === true || String(r.published).toLowerCase() === "true" || String(r.published) === "1");
+      if (section === "attendance" || section === "complaints") return String(r.student_id) === String(user.id);
       const cohortKey = cohortField_(section) || "cohort";
       const rowCohort = r[cohortKey];
-      if (!user.cohort) return !rowCohort;
-      return (!rowCohort || String(rowCohort) === String(user.cohort)) && (!r.department || !user.department || String(r.department) === String(user.department)) && String(r.status || "active") === "active";
+      const inCohort = !user.cohort ? !rowCohort : (!rowCohort || String(rowCohort) === String(user.cohort));
+      const visibleStatus = ["active","published"].includes(String(r.status || "active"));
+      return inCohort && (!r.department || !user.department || String(r.department) === String(user.department)) && visibleStatus;
     });
     if (section === "settings" && !isOwner_(user)) rows = rows.filter(r => !/^admin_/i.test(String(r.key)));
     return out({success:true,items:rows});
