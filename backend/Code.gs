@@ -372,18 +372,40 @@ function ensureDatabaseSafe_(){
     else ensureHeadersSafe_(sh,TABLES[name]);
   });
   const props=PropertiesService.getScriptProperties();
-  const username=props.getProperty("ADMIN_USERNAME"), password=props.getProperty("ADMIN_PASSWORD");
+  const username=String(props.getProperty("ADMIN_USERNAME")||"").trim();
+  const password=String(props.getProperty("ADMIN_PASSWORD")||"");
   if(username && password){
-    const admins=readRows_("Admins");
-    const existing=admins.find(r=>String(r.username||"").toLowerCase()===username.toLowerCase());
-    if(!existing){
-      const salt=Utilities.getUuid();
-      appendObject_("Admins",{id:Utilities.getUuid(),username,full_name:"مدير النظام",email:"",password_hash:hash_(password,salt),password_salt:salt,role:"owner",status:"active",created_at:new Date().toISOString()});
+    const sh=ss.getSheetByName("Admins"), values=sh.getDataRange().getValues(), headers=values[0].map(String);
+    const usernameCol=headers.indexOf("username");
+    const row=values.findIndex((r,i)=>i>0 && String(r[usernameCol]||"").trim().toLowerCase()===username.toLowerCase());
+    const salt=Utilities.getUuid();
+    const adminRecord={id:Utilities.getUuid(),username,full_name:"مدير النظام",email:"",password_hash:hash_(password,salt),password_salt:salt,role:"owner",status:"active",created_at:new Date().toISOString()};
+    if(row<1){
+      appendObject_("Admins",adminRecord);
     } else {
-      const sh=ss.getSheetByName("Admins"), values=sh.getDataRange().getValues(), headers=values[0].map(String);
-      const row=values.findIndex((r,i)=>i>0 && String(r[headers.indexOf("username")]||"").toLowerCase()===username.toLowerCase());
-      if(row>0){const roleCol=headers.indexOf("role"),statusCol=headers.indexOf("status");if(roleCol>=0)sh.getRange(row+1,roleCol+1).setValue("owner");if(statusCol>=0)sh.getRange(row+1,statusCol+1).setValue("active");}
+      // Script Properties are the source of truth for the initial Owner login.
+      // Repair legacy rows whose password hash no longer matches the configured password.
+      headers.forEach((h,col)=>{
+        if(Object.prototype.hasOwnProperty.call(adminRecord,h)) sh.getRange(row+1,col+1).setValue(adminRecord[h]);
+      });
     }
+  }
+
+  // Optional test-student bootstrap. Configure these values in Script Properties;
+  // no credentials are stored in the public GitHub repository.
+  const studentCode=String(props.getProperty("STUDENT_CODE")||"").trim();
+  const studentPassword=String(props.getProperty("STUDENT_PASSWORD")||"");
+  if(studentCode && studentPassword){
+    const studentName=String(props.getProperty("STUDENT_FULL_NAME")||"طالب تجريبي").trim();
+    const studentCohort=String(props.getProperty("STUDENT_COHORT")||"الفرقة الأولى").trim();
+    if(!COHORTS.includes(studentCohort)) throw new Error("STUDENT_COHORT يجب أن تكون إحدى الفرق الأربع.");
+    const sh=ss.getSheetByName("Students"), values=sh.getDataRange().getValues(), headers=values[0].map(String);
+    const codeCol=headers.indexOf("student_code");
+    const row=values.findIndex((r,i)=>i>0 && String(r[codeCol]||"").trim().toLowerCase()===studentCode.toLowerCase());
+    const salt=Utilities.getUuid();
+    const studentRecord={id:Utilities.getUuid(),student_code:studentCode,username:studentCode,full_name:studentName,email:"",phone:"",password_hash:hash_(studentPassword,salt),password_salt:salt,role:"student",cohort:studentCohort,department:"",status:"active",created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    if(row<1) appendObject_("Students",studentRecord);
+    else headers.forEach((h,col)=>{if(Object.prototype.hasOwnProperty.call(studentRecord,h))sh.getRange(row+1,col+1).setValue(studentRecord[h]);});
   }
 }
 
