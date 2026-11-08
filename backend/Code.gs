@@ -6,17 +6,17 @@
 const COHORTS = ["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 const APP_TIME_ZONE = "Africa/Cairo";
 const TABLES = {
-  Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","cohort","department","status","created_at","updated_at"],
+  Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","cohort","department","status","attachment_url","attachment_type","attachment_name","created_at","updated_at"],
   Admins: ["id","username","full_name","email","password_hash","password_salt","role","status","created_at"],
-  Courses: ["id","title","description","cohort","department","teacher","image_url","status","sort_order","created_at","updated_at"],
-  Materials: ["id","title","description","course_id","cohort","department","file_id","file_url","mime_type","image_url","status","created_at","updated_at"],
-  Lectures: ["id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","image_url","status","created_at","updated_at"],
-  Exams: ["id","title","description","course_id","cohort","start_at","end_at","duration_minutes","file_id","file_url","mime_type","image_url","status","created_at","updated_at"],
-  Results: ["id","exam_id","student_id","student_code","cohort","score","max_score","notes","file_id","file_url","mime_type","image_url","published","created_at","updated_at"],
-  Attendance: ["id","attendance_id","session_id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","checked_at","status","latitude","longitude","distance_meters","notes","created_at"],
-  AttendanceSessions: ["session_id","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at"],
-  Announcements: ["id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at"],
-  Complaints: ["id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at"],
+  Courses: ["id","title","description","cohort","department","teacher","image_url","status","sort_order","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Materials: ["id","title","description","course_id","cohort","department","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Lectures: ["id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Exams: ["id","title","description","course_id","cohort","start_at","end_at","duration_minutes","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Results: ["id","exam_id","student_id","student_code","cohort","score","max_score","notes","file_id","file_url","mime_type","image_url","published","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Attendance: ["id","attendance_id","session_id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","checked_at","status","latitude","longitude","distance_meters","notes","created_at","attachment_url","attachment_type","attachment_name"],
+  AttendanceSessions: ["session_id","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Announcements: ["id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Complaints: ["id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
   Settings: ["key","value","updated_at"],
   AuditLog: ["id","actor","action","section","record_id","details","created_at"]
 };
