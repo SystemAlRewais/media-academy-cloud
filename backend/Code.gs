@@ -180,7 +180,7 @@ function createRecord_(section,record,user,selectedCohort) {
     if (!obj.password || String(obj.password).length<8) throw new Error("حدد كلمة مرور للطالب لا تقل عن 8 أحرف.");
     obj.student_code=generateStudentCode_();obj.username=obj.student_code;
     const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;
-    obj.role="student";obj.status=obj.status || "active";
+    obj.role="student";obj.status="active";
   }
   appendObject_(sheetName,obj);
   audit_(user,"create",section,id,obj);
