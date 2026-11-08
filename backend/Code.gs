@@ -134,15 +134,19 @@ function login_(d) {
   return out({success:true,token,user:safeUser_(u)});
 }
 
+function generateStudentCode_() {
+  let code="";
+  for(let i=0;i<12;i++) { code="MA"+Utilities.getUuid().replace(/-/g,"").slice(0,8).toUpperCase(); if(!readRows_("Students").some(r=>String(r.student_code)===code)) return code; }
+  throw new Error("تعذر توليد كود طالب فريد. حاول مرة أخرى.");
+}
 function register_(d) {
-  const code = String(d.studentCode || "").trim();
-  const name = String(d.name || "").trim();
-  const password = String(d.password || "");
-  if (!code || !name || password.length < 8) return out({success:false,message:"أكمل الاسم وكود الطالب، وكلمة المرور 8 أحرف على الأقل."});
-  if (readRows_("Students").some(r => String(r.student_code) === code)) return out({success:false,message:"كود الطالب مسجل بالفعل."});
-  const salt = Utilities.getUuid();
-  appendObject_("Students",{id:Utilities.getUuid(),student_code:code,username:String(d.email || code),full_name:name,email:String(d.email || ""),phone:String(d.phone || ""),password_hash:hash_(password,salt),password_salt:salt,role:"student",cohort:"",department:"",status:"pending",created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
-  return out({success:true,message:"تم إرسال طلب التسجيل إلى الإدارة للمراجعة."});
+  const name=String(d.name||"").trim(), password=String(d.password||""), phone=String(d.phone||"").trim();
+  const email=String(d.email||"").trim(), cohort=String(d.cohort||"").trim();
+  if(!name||!phone||!COHORTS.includes(cohort)||password.length<8) return out({success:false,message:"أكمل الاسم ورقم الهاتف والفرقة، وكلمة المرور 8 أحرف على الأقل."});
+  if(email && readRows_("Students").some(r=>String(r.email||"").toLowerCase()===email.toLowerCase())) return out({success:false,message:"البريد الإلكتروني مسجل بالفعل."});
+  const code=generateStudentCode_(), salt=Utilities.getUuid(), now=new Date().toISOString();
+  appendObject_("Students",{id:Utilities.getUuid(),student_code:code,username:code,full_name:name,email,phone,password_hash:hash_(password,salt),password_salt:salt,role:"student",cohort,department:"",status:"pending",created_at:now,updated_at:now});
+  return out({success:true,message:"تم إرسال طلبك للمراجعة. كود الطالب الخاص بك: "+code,studentCode:code});
 }
 
 function createRecord_(section,record,user,selectedCohort) {
@@ -171,13 +175,16 @@ function createRecord_(section,record,user,selectedCohort) {
   if (cohortKey && selectedCohort === "__unassigned__") throw new Error("لا يمكن إنشاء سجل جديد داخل قائمة الطلاب غير المسندين.");
   if (cohortKey && selectedCohort) obj[cohortKey] = selectedCohort;
   if (section === "students") {
-    if (!obj.student_code || !obj.full_name) throw new Error("كود الطالب والاسم مطلوبان.");
-    if (obj.password) { const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password; }
-    obj.role="student";obj.status=obj.status || "pending";
+    if (!obj.full_name) throw new Error("اسم الطالب مطلوب.");
+    if (!COHORTS.includes(String(obj.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب.");
+    if (!obj.password || String(obj.password).length<8) throw new Error("حدد كلمة مرور للطالب لا تقل عن 8 أحرف.");
+    obj.student_code=generateStudentCode_();obj.username=obj.student_code;
+    const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;
+    obj.role="student";obj.status=obj.status || "active";
   }
   appendObject_(sheetName,obj);
   audit_(user,"create",section,id,obj);
-  return {message:"تمت الإضافة بنجاح.",id};
+  return {message:"تمت الإضافة بنجاح.",id,...(section==="students"?{studentCode:obj.student_code}: {})};
 }
 function updateRecord_(section,id,record,user,selectedCohort) {
   if (!id) throw new Error("معرف السجل مطلوب.");
