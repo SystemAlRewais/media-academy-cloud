@@ -98,7 +98,12 @@ function doPost(e) {
   } catch(err) { return out({success:false,message:String(err)}); }
 }
 
-function authorizeDrive() {\n  DriveApp.getRootFolder();\n  return "Google Drive authorization completed";\n}\n\nfunction initializeDatabase() {
+function authorizeDrive() {
+  DriveApp.getRootFolder();
+  return "Google Drive authorization completed";
+}
+
+function initializeDatabase() {
   const ss = db_();
   Object.keys(TABLES).forEach(name => {
     let sh = ss.getSheetByName(name);
