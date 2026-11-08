@@ -112,8 +112,8 @@ $("registerModal").addEventListener("click",e=>{if(e.target===$("registerModal")
 function closeRegister(){$("registerModal").classList.add("hidden");message("registerMessage","")}
 $("registerForm").addEventListener("submit",async e=>{
  e.preventDefault();message("registerMessage","");
- const body={name:$("regName").value.trim(),phone:$("regPhone").value.trim(),email:$("regEmail").value.trim(),studentCode:$("regCode").value.trim(),password:$("regPassword").value};
- if(!body.name||!body.phone||!body.studentCode||body.password.length<8){message("registerMessage","أكمل البيانات المطلوبة، وكلمة المرور لا تقل عن 8 أحرف.");return}
+ const body={name:$("regName").value.trim(),phone:$("regPhone").value.trim(),email:$("regEmail").value.trim(),cohort:$("regCohort").value,password:$("regPassword").value};
+ if(!body.name||!body.phone||!body.cohort||body.password.length<8){message("registerMessage","أكمل الاسم والهاتف والفرقة، وكلمة المرور لا تقل عن 8 أحرف.");return}
  const btn=$("registerButton");setBusy(btn,true,"إرسال طلب التسجيل");
  try{const result=await api("/auth/register",{method:"POST",auth:false,body});message("registerMessage",result.message||"تم إرسال طلبك إلى إدارة الأكاديمية للمراجعة.",true);$("registerForm").reset()}
  catch(err){message("registerMessage",err.message)}
@@ -149,7 +149,7 @@ function toLocalDateTime(value){const d=new Date(value);if(Number.isNaN(d.getTim
 function fieldDefs(section){
  const common={status:{label:"الحالة",type:"select",options:["active","inactive","pending","published","draft"]},cohort:{label:"الفرقة",type:"text"},department:{label:"القسم",type:"text"}};
  const defs={
- students:[["student_code","كود الطالب"],["full_name","الاسم بالكامل"],["username","اسم المستخدم"],["email","البريد الإلكتروني","email"],["phone","رقم الهاتف"],["password","كلمة المرور","password"],["cohort","الفرقة","select",["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"]],["department","القسم"],["status","الحالة","select",["pending","active","inactive","rejected"]]],
+ students:[["full_name","الاسم بالكامل"],["username","اسم المستخدم"],["email","البريد الإلكتروني","email"],["phone","رقم الهاتف"],["password","كلمة المرور","password"],["cohort","الفرقة","select",["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"]],["department","القسم"],["status","الحالة","select",["pending","active","inactive","rejected"]]],
  courses:[["title","اسم المادة"],["description","الوصف","textarea"],["cohort","الفرقة"],["department","القسم"],["teacher","اسم المدرس"],["sort_order","الترتيب","number"],["status","الحالة","select",["active","inactive"]]],
  materials:[["title","عنوان الكتاب أو الملف"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["status","الحالة","select",["active","inactive"]]],
  lectures:[["title","عنوان المحاضرة"],["description","الوصف","textarea"],["course_id","معرّف المادة"],["cohort","الفرقة"],["department","القسم"],["teacher","المدرس"],["lecture_date","التاريخ","date"],["start_time","من الساعة","time"],["end_time","إلى الساعة","time"],["room","القاعة"],["meeting_url","رابط المحاضرة","url"],["status","الحالة","select",["active","inactive"]]],
@@ -267,8 +267,8 @@ async function saveRecord(e){
     record.file_id=uploaded.fileId;record.file_url=uploaded.url;record.mime_type=file.type||"application/octet-stream";
    }
   }
-  await mutateRecord(section,id?"update":"create",id,record);
-  showToast(id?"تم تحديث السجل بنجاح":"تمت إضافة السجل بنجاح");loadSection(section);
+  const saved=await mutateRecord(section,id?"update":"create",id,record);
+  showToast(id?"تم تحديث السجل بنجاح":(section==="students"&&saved.studentCode?"تم إنشاء الطالب. كود الدخول: "+saved.studentCode:"تمت إضافة السجل بنجاح"));loadSection(section);
  }catch(err){msg.textContent=err.message}
 }
 const cohortSelector=$("cohortSelector");
