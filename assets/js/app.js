@@ -258,14 +258,22 @@ async function saveRecord(e){
  if(section==="announcements")record.target_cohort=selectedCohort;
  const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
  try{
-  if(section==="materials"||section==="lectures"){
-   const file=form.elements.uploadFile.files[0];
+  if(["materials","lectures","exams","results"].includes(section)){
+   const file=form.elements.uploadFile&&form.elements.uploadFile.files[0];
    if(file){
     if(file.size>8*1024*1024)throw new Error("الحد الأقصى لحجم الملف 8 ميجابايت حالياً.");
     const base64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]);reader.onerror=reject;reader.readAsDataURL(file)});
     const uploaded=await api("/api/admin/materials",{method:"POST",body:{action:"upload",name:file.name,mimeType:file.type||"application/octet-stream",base64}});
     record.file_id=uploaded.fileId;record.file_url=uploaded.url;record.mime_type=file.type||"application/octet-stream";
    }
+  }
+  const imageFile=form.elements.imageFile&&form.elements.imageFile.files[0];
+  if(imageFile){
+   if(!imageFile.type.startsWith("image/"))throw new Error("اختر ملف صورة صحيحاً.");
+   if(imageFile.size>8*1024*1024)throw new Error("الحد الأقصى لحجم الصورة 8 ميجابايت.");
+   const imageBase64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]);reader.onerror=reject;reader.readAsDataURL(imageFile)});
+   const uploadedImage=await api("/api/admin/materials",{method:"POST",body:{action:"upload",name:imageFile.name,mimeType:imageFile.type,base64:imageBase64}});
+   record.image_url=uploadedImage.url;
   }
   const saved=await mutateRecord(section,id?"update":"create",id,record);
   if(!id&&section==="students"&&saved.studentCode) alert("تم إنشاء حساب الطالب بنجاح.\nكود الدخول: "+saved.studentCode+"\nاحتفظ بالكود وأرسله للطالب."); else showToast(id?"تم تحديث السجل بنجاح":"تمت إضافة السجل بنجاح");loadSection(section);
