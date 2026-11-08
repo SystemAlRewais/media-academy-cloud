@@ -268,7 +268,7 @@ async function saveRecord(e){
    }
   }
   const saved=await mutateRecord(section,id?"update":"create",id,record);
-  showToast(id?"تم تحديث السجل بنجاح":(section==="students"&&saved.studentCode?"تم إنشاء الطالب. كود الدخول: "+saved.studentCode:"تمت إضافة السجل بنجاح"));loadSection(section);
+  if(!id&&section==="students"&&saved.studentCode) alert("تم إنشاء حساب الطالب بنجاح.\nكود الدخول: "+saved.studentCode+"\nاحتفظ بالكود وأرسله للطالب."); else showToast(id?"تم تحديث السجل بنجاح":"تمت إضافة السجل بنجاح");loadSection(section);
  }catch(err){msg.textContent=err.message}
 }
 const cohortSelector=$("cohortSelector");
