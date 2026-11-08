@@ -383,6 +383,9 @@ function ensureDatabaseSafe_(){
     if(row<1){
       appendObject_("Admins",adminRecord);
     } else {
+      // Preserve the existing account ID and creation timestamp.
+      adminRecord.id=values[row][headers.indexOf("id")] || Utilities.getUuid();
+      adminRecord.created_at=values[row][headers.indexOf("created_at")] || new Date().toISOString();
       // Script Properties are the source of truth for the initial Owner login.
       // Repair legacy rows whose password hash no longer matches the configured password.
       headers.forEach((h,col)=>{
