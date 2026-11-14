@@ -88,7 +88,7 @@ function doPost(e) {
     if (user.role === "student" && action === "checkin") return checkIn_(data,user);
     if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const selectedCohort = String(data.cohort || "").trim();
-    if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !COHORTS.includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
+    if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !allCohortNames_().includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
     if (section !== "settings" && ["create","update","delete","approve","reject"].includes(action) && (!selectedCohort || selectedCohort === "__all__")) return out({success:false,message:"اختر فرقة محددة قبل تنفيذ الإضافة أو التعديل أو الحذف."});
     if (action === "upload") return out(upload_(data,user));
     if (!SECTION_SHEET[section] || ["settings"].includes(section) && !isOwner_(user)) return out({success:false,message:"قسم غير صالح أو لا تملك صلاحية إدارته."});
@@ -229,7 +229,7 @@ function updateRecord_(section,id,record,user,selectedCohort) {
     const oldCohort=cohortCol>=0?String(values[row][cohortCol]||""):"";
     const nextCohort=record.cohort===undefined?oldCohort:String(record.cohort||"");
     const nextStatus=record.status===undefined?(statusCol>=0?String(values[row][statusCol]||""):""):String(record.status);
-    if(nextCohort && !COHORTS.includes(nextCohort)) throw new Error("الفرقة الدراسية المحددة غير صحيحة.");
+    if(nextCohort && !allCohortNames_().includes(nextCohort)) throw new Error("الفرقة الدراسية المحددة غير صحيحة.");
     if(nextStatus==="active" && !COHORTS.includes(nextCohort)) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
   }
   if(obj.password){const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;}
