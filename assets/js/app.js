@@ -23,12 +23,14 @@ async function loadCollegeSettings(){
  if(!Array.isArray(colleges)||!colleges.length)colleges=[DEFAULT_COLLEGE];
  colleges=colleges.filter(x=>typeof x==="string"&&x.trim());
  if(!colleges.length)colleges=[DEFAULT_COLLEGE];
- collegeSettings={colleges,active:colleges.includes(values.active_college)?values.active_college:colleges[0]};
+ collegeSettings={colleges,active:values.college_name|| (colleges.includes(values.active_college)?values.active_college:colleges[0]),platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
+ if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.colleges.unshift(collegeSettings.active);
  renderCollegeSettings();applyCollegeBranding();
+ const platformInput=$("platformNameInput"),collegeInput=$("collegeNameInput");if(platformInput)platformInput.value=collegeSettings.platformName;if(collegeInput)collegeInput.value=collegeSettings.active;
 }
 async function persistCollegeSettings(){
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
- const values={college_list:JSON.stringify(collegeSettings.colleges),active_college:collegeSettings.active};
+ const values={college_list:JSON.stringify(collegeSettings.colleges),active_college:collegeSettings.active,platform_name:collegeSettings.platformName||"المنصة التعليمية المفتوحة",college_name:collegeSettings.active};
  for(const [key,value] of Object.entries(values)){
   const existing=rows.find(x=>String(x.key)===key);
   await mutateRecord("settings",existing?"update":"create",key,{value});
@@ -39,7 +41,7 @@ async function saveCollegeSettings(){
  try{if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=collegeSettings.colleges[0];await persistCollegeSettings();renderCollegeSettings();applyCollegeBranding();if(note)note.textContent="تم حفظ الإعدادات في قاعدة البيانات السحابية.";}
  catch(err){if(note)note.textContent="تعذر الحفظ: "+err.message;showToast("لم يتم حفظ إعدادات الكليات.");try{await loadCollegeSettings()}catch{}}
 }
-function applyCollegeBranding(){const el=$("collegeHeaderName");if(el)el.textContent=collegeSettings.active;const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=collegeSettings.active;document.title="Media Academy | "+collegeSettings.active}
+function applyCollegeBranding(){const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة";const college=collegeSettings.active||DEFAULT_COLLEGE;const el=$("collegeHeaderName");if(el)el.textContent=college;const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=college;document.title=platform+" | "+college;document.querySelectorAll(".brand-copy b,.sidebar-brand b").forEach(node=>node.textContent=platform.toUpperCase());document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();const authHeading=$("authTitle");if(authHeading&&authHeading.textContent.includes("الأكاديمية"))authHeading.textContent=authHeading.textContent.replaceAll("الأكاديمية",platform);}
 function renderCollegeSettings(){const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;select.innerHTML=collegeSettings.colleges.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join("");select.value=collegeSettings.active;list.innerHTML=collegeSettings.colleges.map(name=>'<div class="college-list-item"><span>'+escapeHtml(name)+'</span>'+(collegeSettings.colleges.length>1?'<button type="button" data-remove-college="'+encodeURIComponent(name)+'" aria-label="حذف '+escapeHtml(name)+'">حذف</button>':'<small>الكلية الافتراضية</small>')+'</div>').join("");}
 async function openCollegeSettings(){try{await loadCollegeSettings();$("collegeSettingsModal").classList.remove("hidden")}catch(err){showToast(err.message)}}
 function closeCollegeSettings(){$("collegeSettingsModal").classList.add("hidden")}
@@ -83,7 +85,9 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
 $("openCollegeSettings").addEventListener("click",openCollegeSettings);
 $("closeCollegeSettings").addEventListener("click",closeCollegeSettings);
 $("collegeSettingsModal").addEventListener("click",e=>{if(e.target===$("collegeSettingsModal"))closeCollegeSettings()});
-$("activeCollegeSelect").addEventListener("change",e=>{collegeSettings.active=e.target.value;saveCollegeSettings()});
+$("activeCollegeSelect").addEventListener("change",e=>{collegeSettings.active=e.target.value;const input=$("collegeNameInput");if(input)input.value=collegeSettings.active;saveCollegeSettings()});
+$("saveBrandButton").addEventListener("click",async()=>{const value=$("platformNameInput").value.trim();if(!value){$("collegeSettingsNote").textContent="اكتب اسم المنصة أولاً.";return}collegeSettings.platformName=value;await saveCollegeSettings()});
+$("saveCollegeNameButton").addEventListener("click",async()=>{const value=$("collegeNameInput").value.trim();if(!value){$("collegeSettingsNote").textContent="اكتب اسم الكلية أولاً.";return}if(!collegeSettings.colleges.includes(value))collegeSettings.colleges.push(value);collegeSettings.active=value;renderCollegeSettings();await saveCollegeSettings()});
 $("addCollegeButton").addEventListener("click",()=>{const input=$("newCollegeName"),name=input.value.trim();if(!name){$("collegeSettingsNote").textContent="اكتب اسم الكلية أولاً.";return}if(collegeSettings.colleges.some(x=>x.toLowerCase()===name.toLowerCase())){$("collegeSettingsNote").textContent="هذه الكلية مضافة بالفعل.";return}collegeSettings.colleges.push(name);collegeSettings.active=name;input.value="";$("collegeSettingsNote").textContent="تمت إضافة الكلية وحفظها على هذا المتصفح.";saveCollegeSettings()});
 $("collegeList").addEventListener("click",e=>{const btn=e.target.closest("[data-remove-college]");if(!btn)return;const name=decodeURIComponent(btn.dataset.removeCollege);collegeSettings.colleges=collegeSettings.colleges.filter(x=>x!==name);if(!collegeSettings.colleges.length)collegeSettings.colleges=[DEFAULT_COLLEGE];if(collegeSettings.active===name)collegeSettings.active=collegeSettings.colleges[0];saveCollegeSettings()});
 applyCollegeBranding();
