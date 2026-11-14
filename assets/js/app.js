@@ -6,6 +6,7 @@ const isAdminUser = () => !!currentUser && (currentUser.role === "admin" || curr
 let role = "student", token = null, currentUser = null, activeSection = "home";
 let COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 let selectedCohort=sessionStorage.getItem("ma_admin_cohort")||"__all__";
+let selectedEntityId=sessionStorage.getItem("ma_admin_entity")||"legacy-media";
 const studentNav = [
  ["home","الرئيسية","⌂"],["profile","ملفي الشخصي","◉"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات","▶"],["schedule","جدول المحاضرات","▦"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"]
 ];
@@ -30,6 +31,7 @@ async function loadCollegeSettings(){
  collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
  if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=entities[0].name;
  COHORTS=[...new Set(entities.flatMap(x=>(x.levels||[]).map(l=>l.name)))];
+ const entityControl=$("entitySelector");if(entityControl){entityControl.innerHTML=entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");if(!entities.some(x=>x.id===selectedEntityId))selectedEntityId=entities[0].id;entityControl.value=selectedEntityId;}
  const cohortControl=$("cohortSelector");if(cohortControl){cohortControl.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");if(selectedCohort!=="__all__"&&selectedCohort!=="__unassigned__"&&!COHORTS.includes(selectedCohort))selectedCohort="__all__";cohortControl.value=selectedCohort;}
  renderCollegeSettings();applyCollegeBranding();
  const p=$("platformNameInput"),c=$("collegeNameInput");if(p)p.value=collegeSettings.platformName;if(c)c.value=collegeSettings.active;
@@ -77,10 +79,12 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
    const params=new URLSearchParams({path});
    if(auth&&token) params.set("token",token);
    if(auth&&currentUser&&isAdminUser()&&selectedCohort) params.set("cohort",selectedCohort);
+   if(auth&&currentUser&&isAdminUser()&&selectedEntityId) params.set("entity_id",selectedEntityId);
    response=await fetch(url+"?"+params.toString(),{method:"GET",headers:{Accept:"application/json"},signal:controller.signal});
   }else{
    const payload=body?{...body}:{};
    if(auth&&currentUser&&isAdminUser()&&selectedCohort) payload.cohort=selectedCohort;
+   if(auth&&currentUser&&isAdminUser()&&selectedEntityId) payload.entity_id=selectedEntityId;
    if(path==="/auth/login") payload.action="login";
    else if(path==="/auth/register") payload.action="register";
    else payload.path=path;
@@ -302,6 +306,8 @@ async function saveRecord(e){
   if(!id&&section==="students"&&saved.studentCode) alert("تم إنشاء حساب الطالب بنجاح.\nكود الدخول: "+saved.studentCode+"\nاحتفظ بالكود وأرسله للطالب."); else showToast(id?"تم تحديث السجل بنجاح":"تمت إضافة السجل بنجاح");loadSection(section);
  }catch(err){msg.textContent=err.message}
 }
+const entitySelector=$("entitySelector");
+if(entitySelector){entitySelector.addEventListener("change",()=>{selectedEntityId=entitySelector.value;sessionStorage.setItem("ma_admin_entity",selectedEntityId);const entity=collegeSettings.entities.find(x=>x.id===selectedEntityId);COHORTS=(entity?.levels||[]).map(x=>x.name);const cohortSelector=$("cohortSelector");if(cohortSelector){cohortSelector.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");if(!COHORTS.includes(selectedCohort))selectedCohort="__all__";cohortSelector.value=selectedCohort;}loadSection(activeSection);});}
 const cohortSelector=$("cohortSelector");
 if(cohortSelector){cohortSelector.addEventListener("change",()=>{selectedCohort=cohortSelector.value;sessionStorage.setItem("ma_admin_cohort",selectedCohort);loadSection(activeSection);});}
 $("logoutButton").addEventListener("click",()=>{token=null;currentUser=null;$("openCollegeSettings").classList.add("hidden");sessionStorage.removeItem("ma_session");$("appPage").classList.add("hidden");$("authPage").classList.remove("hidden");$("loginForm").reset();message("loginMessage","");selectRole("student");window.scrollTo({top:0,behavior:"smooth"})});
