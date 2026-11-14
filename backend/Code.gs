@@ -12,7 +12,7 @@ function educationEntities_(){
       if(Array.isArray(parsed)&&parsed.length)return parsed.filter(x=>x&&x.name).map((x,i)=>{
         const id=String(x.id||("entity-"+(i+1))),type=String(x.type||"college");
         let levels=Array.isArray(x.levels)?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+(j+1))),name:String(v.name)})):[];
-        if(!levels.length&&type!=="center")levels=LEGACY_COHORTS.map((name,j)=>({id:"default-"+(j+1),name}));
+        if(!levels.length&&type==="college")levels=LEGACY_COHORTS.map((name,j)=>({id:"default-"+(j+1),name}));
         return {id,name:String(x.name),type,levels};
       });
     }catch(e){}
