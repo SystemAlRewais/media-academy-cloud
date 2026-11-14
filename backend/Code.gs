@@ -46,8 +46,8 @@ function doGet(e) {
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
-    const requestedEntity=String(p.entity_id||(user.role==="student"?user.entity_id:"")||"").trim();
-    if(requestedEntity&&section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||defaultEntityId_())===requestedEntity);}
+    const requestedEntity=String(p.entity_id||user.entity_id||defaultEntityId_()).trim();
+    if(section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||defaultEntityId_())===requestedEntity);}
     const requestedCohort = String(p.cohort || "").trim();
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
       if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
@@ -207,8 +207,9 @@ function updateRecord_(section,id,record,user,selectedCohort,selectedEntityId) {
   if (!id) throw new Error("معرف السجل مطلوب.");
   if (section === "settings") {
     const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key"),vc=h.indexOf("value"),uc=h.indexOf("updated_at");
-    const row=v.findIndex((r,i)=>i>0&&String(r[kc])===String(id)); if(row<1) throw new Error("الإعداد غير موجود.");
-    if(vc>=0)sh.getRange(row+1,vc+1).setValue(record.value===undefined?"":record.value); if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());
+    const matching=[];for(let i=1;i<v.length;i++)if(String(v[i][kc])===String(id))matching.push(i);
+    if(!matching.length) throw new Error("الإعداد غير موجود.");
+    matching.forEach(row=>{if(vc>=0)sh.getRange(row+1,vc+1).setValue(record.value===undefined?"":record.value);if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());});
     audit_(user,"update",section,id,record); return {message:"تم تحديث الإعداد."};
   }
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
@@ -295,7 +296,7 @@ function checkIn_(data,user) {
     const attendance=readRows_("Attendance");
     const checkedAt=new Date();
     const attendanceDate=Utilities.formatDate(checkedAt, APP_TIME_ZONE, "yyyy-MM-dd");
-    if(attendance.some(x=>String(x.attendance_date)===attendanceDate && String(x.student_id)===String(user.id))) return out({success:false,message:"تم تسجيل حضورك بالفعل اليوم. لا يمكن تكرار الحضور في اليوم نفسه."});
+    if(attendance.some(x=>String(x.attendance_date)===attendanceDate && String(x.student_id)===String(user.id) && String(x.entity_id||defaultEntityId_())===String(user.entity_id||defaultEntityId_()))) return out({success:false,message:"تم تسجيل حضورك بالفعل اليوم. لا يمكن تكرار الحضور في اليوم نفسه."});
     iso=checkedAt.toISOString();id=Utilities.getUuid();
     appendObject_("Attendance",{id,attendance_id:id,entity_id:user.entity_id||defaultEntityId_(),session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:attendanceDate,check_in:Utilities.formatDate(checkedAt, APP_TIME_ZONE, "HH:mm:ss"),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
   } finally { lock.releaseLock(); }
@@ -436,7 +437,8 @@ function ensureDatabaseSafe_(){
     const codeCol=headers.indexOf("student_code");
     const row=values.findIndex((r,i)=>i>0 && String(r[codeCol]||"").trim().toLowerCase()===studentCode.toLowerCase());
     const salt=Utilities.getUuid();
-    const studentRecord={id:Utilities.getUuid(),student_code:studentCode,username:studentCode,full_name:studentName,email:"",phone:"",password_hash:hash_(studentPassword,salt),password_salt:salt,role:"student",cohort:studentCohort,department:"",status:"active",created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    const bootstrapEntity=educationEntities_()[0]||{id:defaultEntityId_(),name:"كلية الإعلام – جامعة الأزهر"};
+    const studentRecord={id:Utilities.getUuid(),student_code:studentCode,username:studentCode,full_name:studentName,email:"",phone:"",password_hash:hash_(studentPassword,salt),password_salt:salt,role:"student",entity_id:bootstrapEntity.id,entity_name:bootstrapEntity.name,cohort:studentCohort,department:"",status:"active",created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
     if(row<1) appendObject_("Students",studentRecord);
     else headers.forEach((h,col)=>{if(Object.prototype.hasOwnProperty.call(studentRecord,h))sh.getRange(row+1,col+1).setValue(studentRecord[h]);});
   }
