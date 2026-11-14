@@ -149,7 +149,7 @@ $("loginForm").addEventListener("submit",async e=>{
   const data=await api("/auth/login",{method:"POST",auth:false,body:{identity,password,role,remember:$("remember").checked}});
   if(!data.token||!data.user)throw new Error("استجابة تسجيل الدخول غير مكتملة من الخادم.");
   if(data.user.role && (role==="admin" ? !["admin","owner"].includes(data.user.role) : data.user.role!=="student")) throw new Error("نوع الحساب لا يطابق بوابة الدخول المختارة.");
-  token=data.token;currentUser=data.user;activeSection="home";if(!isAdminUser()&&currentUser.entity_name){collegeSettings.active=currentUser.entity_name;applyCollegeBranding();await loadPublicBranding(currentUser.entity_id||"");}
+  token=data.token;currentUser=data.user;activeSection="home";if(!isAdminUser()&&currentUser.entity_name){collegeSettings.active=currentUser.entity_name;applyCollegeBranding();}
   if($("remember").checked)sessionStorage.setItem("ma_session",JSON.stringify({token,user:currentUser}));
   openWorkspace();
  }catch(err){message("loginMessage",err.message)}
@@ -215,7 +215,7 @@ function openWorkspace(){
  const cohortControl=$("cohortSelector");
  if(cohortControl){cohortControl.classList.toggle("hidden",!isAdminUser());cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
- renderNav();if(isAdminUser())loadCollegeSettings().then(()=>loadSection("home")).catch(()=>loadSection("home"));else loadSection("home");
+ renderNav();if(isAdminUser())loadCollegeSettings().then(()=>loadSection("home")).catch(()=>loadSection("home"));else{loadPublicBranding(currentUser.entity_id||"");loadSection("home");}
 }
 function renderNav(){
  const nav=isAdminUser()?adminNav:studentNav;
@@ -367,7 +367,7 @@ const entitySelector=$("entitySelector");
 if(entitySelector){entitySelector.addEventListener("change",()=>{selectedEntityId=entitySelector.value;sessionStorage.setItem("ma_admin_entity",selectedEntityId);const entity=collegeSettings.entities.find(x=>x.id===selectedEntityId);COHORTS=(entity?.levels||[]).map(x=>x.name);const cohortSelector=$("cohortSelector");if(cohortSelector){cohortSelector.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");if(!COHORTS.includes(selectedCohort))selectedCohort="__all__";cohortSelector.value=selectedCohort;}loadSection(activeSection);});}
 const cohortSelector=$("cohortSelector");
 if(cohortSelector){cohortSelector.addEventListener("change",()=>{selectedCohort=cohortSelector.value;sessionStorage.setItem("ma_admin_cohort",selectedCohort);loadSection(activeSection);});}
-$("logoutButton").addEventListener("click",()=>{token=null;currentUser=null;$("openCollegeSettings").classList.add("hidden");sessionStorage.removeItem("ma_session");$("appPage").classList.add("hidden");$("authPage").classList.remove("hidden");$("loginForm").reset();message("loginMessage","");selectRole("student");window.scrollTo({top:0,behavior:"smooth"})});
+$("logoutButton").addEventListener("click",()=>{token=null;currentUser=null;collegeSettings.activeEntitySettings={};$("openCollegeSettings").classList.add("hidden");sessionStorage.removeItem("ma_session");$("appPage").classList.add("hidden");$("authPage").classList.remove("hidden");$("loginForm").reset();message("loginMessage","");selectRole("student");loadPublicBranding();window.scrollTo({top:0,behavior:"smooth"})});
 loadPublicBranding();
 const saved=sessionStorage.getItem("ma_session");
 if(saved){try{const session=JSON.parse(saved);if(session.token&&session.user){token=session.token;currentUser=session.user;openWorkspace()}}catch{sessionStorage.removeItem("ma_session")}}
