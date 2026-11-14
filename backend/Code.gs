@@ -218,7 +218,7 @@ function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
   }
   const id = Utilities.getUuid();
   const obj = {...record,id,entity_id:selectedEntityId,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-  if(section!=="settings"){const teacherId=String(record.teacher_id||"").trim();if(teacherId){const entity=educationEntities_().find(x=>String(x.id)===String(selectedEntityId));const teacher=(entity&&entity.teachers||[]).find(t=>String(t.id)===teacherId);if(!teacher)throw new Error("اختر مدرساً مسجلاً داخل هذه الجهة.");obj.teacher_id=teacher.id;obj.teacher_name=teacher.name;}else if(["students","courses","materials","lectures","exams"].includes(section))throw new Error("اختر المدرس المسؤول عن هذا السجل.");}
+  if(section!=="settings"){const teacherId=String(record.teacher_id||"").trim();if(teacherId){const entity=educationEntities_().find(x=>String(x.id)===String(selectedEntityId));const teacher=(entity&&entity.teachers||[]).find(t=>String(t.id)===teacherId);if(!teacher)throw new Error("اختر مدرساً مسجلاً داخل هذه الجهة.");obj.teacher_id=teacher.id;obj.teacher_name=teacher.name;}else throw new Error("اختر المدرس المسؤول عن هذا السجل.");}
   if(section==="attendance_sessions") {
     const code=String(record.access_code||"").trim(); let lat=Number(record.latitude),lon=Number(record.longitude); if(!Number.isFinite(lat)||!Number.isFinite(lon)){const coords=coordinatesFromMapsUrl_(record.location_url);if(!Number.isFinite(lat))lat=coords.latitude;if(!Number.isFinite(lon))lon=coords.longitude;} const radius=Number(record.radius_meters);
     const opens=new Date(record.opens_at).getTime(),closes=new Date(record.closes_at).getTime();
@@ -264,6 +264,7 @@ function updateRecord_(section,id,record,user,selectedCohort,selectedEntityId) {
   assertRecordEntity_(values,headers,row,selectedEntityId);
   assertRecordCohort_(section, values, headers, row, selectedCohort);
   const obj={...record,updated_at:new Date().toISOString()};
+  if(section!=="settings"&&record.teacher_id!==undefined){const entity=educationEntities_().find(x=>String(x.id)===String(selectedEntityId));const teacher=(entity&&entity.teachers||[]).find(t=>String(t.id)===String(record.teacher_id));if(!teacher)throw new Error("اختر مدرساً مسجلاً داخل هذه الجهة.");obj.teacher_id=teacher.id;obj.teacher_name=teacher.name;}
   if(section==="attendance_sessions") {
     let lat=record.latitude===undefined?Number(values[row][headers.indexOf("latitude")]):Number(record.latitude), lon=record.longitude===undefined?Number(values[row][headers.indexOf("longitude")]):Number(record.longitude); const radius=record.radius_meters===undefined?Number(values[row][headers.indexOf("radius_meters")]):Number(record.radius_meters); if(record.location_url!==undefined && record.latitude===undefined && record.longitude===undefined){const coords=coordinatesFromMapsUrl_(record.location_url);lat=coords.latitude;lon=coords.longitude;}
     const opens=record.opens_at===undefined?new Date(values[row][headers.indexOf("opens_at")]).getTime():new Date(record.opens_at).getTime(), closes=record.closes_at===undefined?new Date(values[row][headers.indexOf("closes_at")]).getTime():new Date(record.closes_at).getTime();
@@ -345,7 +346,7 @@ function checkIn_(data,user) {
     const attendanceDate=Utilities.formatDate(checkedAt, APP_TIME_ZONE, "yyyy-MM-dd");
     if(attendance.some(x=>String(x.attendance_date)===attendanceDate && String(x.student_id)===String(user.id) && String(x.entity_id||defaultEntityId_())===String(user.entity_id||defaultEntityId_()))) return out({success:false,message:"تم تسجيل حضورك بالفعل اليوم. لا يمكن تكرار الحضور في اليوم نفسه."});
     iso=checkedAt.toISOString();id=Utilities.getUuid();
-    appendObject_("Attendance",{id,attendance_id:id,entity_id:user.entity_id||defaultEntityId_(),session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:attendanceDate,check_in:Utilities.formatDate(checkedAt, APP_TIME_ZONE, "HH:mm:ss"),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
+    appendObject_("Attendance",{id,attendance_id:id,entity_id:user.entity_id||defaultEntityId_(),teacher_id:user.teacher_id||"",teacher_name:user.teacher_name||"",session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:attendanceDate,check_in:Utilities.formatDate(checkedAt, APP_TIME_ZONE, "HH:mm:ss"),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
   } finally { lock.releaseLock(); }
   audit_(user,"checkin","attendance",id,{session_id:sessionId,distance_meters:Math.round(distance)});
   return out({success:true,message:"تم تسجيل حضورك بنجاح.",distance_meters:Math.round(distance)});
