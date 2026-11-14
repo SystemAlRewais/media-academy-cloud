@@ -129,7 +129,7 @@ function doPost(e) {
     if (user.role === "student" && action === "submit_complaint") return submitComplaint_(data,user);
     if (user.role === "student" && action === "checkin") return checkIn_(data,user);
     if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
-    const selectedCohort = String(data.cohort || "").trim();
+    const selectedCohort = String(data.cohort || (section === "students" && action === "create" && data.record ? data.record.cohort : "") || "").trim();
     const selectedEntityId=String(data.entity_id||defaultEntityId_()).trim();
     if(section!=="settings"&&!educationEntities_().some(x=>String(x.id)===selectedEntityId))return out({success:false,message:"اختر جهة تعليمية صحيحة."});
     if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !cohortNamesForEntity_(selectedEntityId).includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
