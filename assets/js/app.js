@@ -60,7 +60,22 @@ function renderCollegeSettings(){
  list.innerHTML='<div class="college-list-item"><b>'+escapeHtml(entity.name)+'</b><small>'+((entity.levels||[]).length)+' مستويات</small></div>'+levels+collegeSettings.entities.map(x=>x.name===entity.name?"":'<div class="college-list-item"><span>'+escapeHtml(x.name)+'</span><button type="button" data-remove-entity="'+escapeHtml(x.id)+'">حذف الجهة</button></div>').join("");
  const type=$("entityTypeInput");if(type)type.value=entity.type||"college";loadActiveEntitySettings();
 }
-function applyCollegeBranding(){const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة";const college=collegeSettings.active||DEFAULT_COLLEGE;const academyEl=$("academyHeaderName");if(academyEl)academyEl.textContent="بوابة "+college;const el=$("collegeHeaderName");if(el){el.textContent="";el.parentElement.style.display="none";}const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=college;document.title=platform+" | "+college;document.querySelectorAll(".brand-copy b,.sidebar-brand b").forEach(node=>node.textContent=platform.toUpperCase());document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();const authHeading=$("authTitle");if(authHeading&&authHeading.textContent.includes("الأكاديمية"))authHeading.textContent=authHeading.textContent.replaceAll("الأكاديمية",platform);}
+function applyCollegeBranding(){
+ const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة",college=collegeSettings.active||DEFAULT_COLLEGE;
+ const academyEl=$("academyHeaderName");if(academyEl)academyEl.textContent="بوابة "+college;
+ const el=$("collegeHeaderName");if(el){el.textContent="";el.parentElement.style.display="none";}
+ const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=college;
+ document.title=platform+" | "+college;
+ document.querySelectorAll(".brand-copy b,.sidebar-brand b").forEach(node=>node.textContent=platform.toUpperCase());
+ document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");
+ const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();
+ const authHeading=$("authTitle");if(authHeading&&authHeading.textContent.includes("الأكاديمية"))authHeading.textContent=authHeading.textContent.replaceAll("الأكاديمية",platform);
+ const settings=collegeSettings.activeEntitySettings||activeEntity()?.settings||{};
+ const welcome=document.querySelector(".hero-lead");if(welcome&&settings.welcomeMessage)welcome.textContent=settings.welcomeMessage;
+ const logoUrl=String(settings.logoUrl||"").trim();let safeLogo="";
+ try{const parsed=new URL(logoUrl);if(parsed.protocol==="https:"||parsed.protocol==="http:")safeLogo=parsed.href;}catch(e){}
+ document.querySelectorAll(".brand-mark").forEach(mark=>{mark.style.backgroundImage=safeLogo?'url("'+safeLogo.replace(/["\\]/g,"")+'")':"";mark.style.backgroundSize="cover";mark.style.backgroundPosition="center";if(safeLogo)mark.textContent="";else mark.textContent="MA";});
+}
 
 async function openCollegeSettings(){try{await loadCollegeSettings();$("collegeSettingsModal").classList.remove("hidden")}catch(err){showToast(err.message)}}
 function closeCollegeSettings(){$("collegeSettingsModal").classList.add("hidden")}
@@ -68,7 +83,7 @@ function message(id,text,success=false){const el=$(id);if(!el)return;el.textCont
 function setBusy(button,busy,label){button.disabled=busy;button.querySelector("span").textContent=busy?"جارٍ التنفيذ...":label}
 function showToast(text){const el=$("toast");el.textContent=text;el.classList.remove("hidden");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>el.classList.add("hidden"),3500)}
 function selectRole(next){role=next;const student=next==="student";$("studentRole").classList.toggle("selected",student);$("adminRole").classList.toggle("selected",!student);$("studentRole").setAttribute("aria-selected",String(student));$("adminRole").setAttribute("aria-selected",String(!student));$("identityLabel").textContent=student?"كود الطالب":"اسم المستخدم الإداري";$("identity").placeholder=student?"أدخل كود الطالب":"أدخل اسم المستخدم";$("registerArea").classList.toggle("hidden",!student);$("authTitle").textContent=student?"مرحباً بعودتك":"بوابة إدارة الأكاديمية";$("authSubtitle").textContent=student?"اختر بوابتك وسجّل الدخول للمتابعة":"الدخول المخصص لمسؤولي الأكاديمية";message("loginMessage","")}
-async function api(path,{method="GET",body=null,auth=true}={}) {
+async function api(path,{method="GET",body=null,auth=true,params:extraParams={}}={}) {
  if(!cfg.API_BASE_URL) throw new Error("لم يتم إعداد رابط خدمة النظام بعد.");
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),cfg.REQUEST_TIMEOUT_MS||20000);
  try{
@@ -77,7 +92,7 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
   const url=cfg.API_BASE_URL.replace(/\/$/,"");
   let response;
   if(method==="GET"){
-   const params=new URLSearchParams({path});
+   const params=new URLSearchParams({path,...extraParams});
    if(auth&&token) params.set("token",token);
    if(auth&&currentUser&&isAdminUser()&&selectedCohort) params.set("cohort",selectedCohort);
    if(auth&&currentUser&&isAdminUser()&&selectedEntityId) params.set("entity_id",selectedEntityId);
@@ -134,7 +149,7 @@ $("loginForm").addEventListener("submit",async e=>{
   const data=await api("/auth/login",{method:"POST",auth:false,body:{identity,password,role,remember:$("remember").checked}});
   if(!data.token||!data.user)throw new Error("استجابة تسجيل الدخول غير مكتملة من الخادم.");
   if(data.user.role && (role==="admin" ? !["admin","owner"].includes(data.user.role) : data.user.role!=="student")) throw new Error("نوع الحساب لا يطابق بوابة الدخول المختارة.");
-  token=data.token;currentUser=data.user;activeSection="home";if(!isAdminUser()&&currentUser.entity_name){collegeSettings.active=currentUser.entity_name;applyCollegeBranding();}
+  token=data.token;currentUser=data.user;activeSection="home";if(!isAdminUser()&&currentUser.entity_name){collegeSettings.active=currentUser.entity_name;applyCollegeBranding();await loadPublicBranding(currentUser.entity_id||"");}
   if($("remember").checked)sessionStorage.setItem("ma_session",JSON.stringify({token,user:currentUser}));
   openWorkspace();
  }catch(err){message("loginMessage",err.message)}
@@ -165,7 +180,7 @@ function updateRegistrationEntities(){
  if(entities.length===1)select.value=entities[0].id;
  updateRegistrationLevels();
 }
-async function loadPublicBranding(){try{const data=await api("/api/public/education",{auth:false});collegeSettings.academyName=data.academyName||collegeSettings.academyName;collegeSettings.platformName=data.platformName||collegeSettings.platformName;if(data.activeCollege)collegeSettings.active=data.activeCollege;applyCollegeBranding();}catch(err){console.warn("Public branding unavailable",err.message)}}
+async function loadPublicBranding(entityId=""){try{const data=await api("/api/public/education",{auth:false,params:entityId?{entity_id:entityId}:{}});collegeSettings.academyName=data.academyName||collegeSettings.academyName;collegeSettings.platformName=data.platformName||collegeSettings.platformName;if(data.activeCollege&&!entityId)collegeSettings.active=data.activeCollege;collegeSettings.activeEntitySettings=data.entitySettings||{};if(entityId&&currentUser&&String(currentUser.entity_id)===String(entityId)&&currentUser.entity_name)collegeSettings.active=currentUser.entity_name;applyCollegeBranding();}catch(err){console.warn("Public branding unavailable",err.message)}}
 function updateRegistrationLevels(){
  const entities=JSON.parse($("regEntity").dataset.entities||"[]"),entity=entities.find(x=>x.id===$("regEntity").value),select=$("regCohort");
  const levels=entity&&Array.isArray(entity.levels)?entity.levels:[];
