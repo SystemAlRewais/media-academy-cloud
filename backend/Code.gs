@@ -13,7 +13,7 @@ function educationEntities_(){
         const id=String(x.id||("entity-"+(i+1))),type=String(x.type||"college");
         let levels=Array.isArray(x.levels)?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+(j+1))),name:String(v.name)})):[];
         if(!levels.length&&type==="college")levels=LEGACY_COHORTS.map((name,j)=>({id:"default-"+(j+1),name}));
-        return {id,name:String(x.name),type,levels};
+        return {id,name:String(x.name),type,levels,teachers:Array.isArray(x.teachers)?x.teachers.filter(t=>t&&t.id&&t.name).map(t=>({id:String(t.id),name:String(t.name)})):[]};
       });
     }catch(e){}
   }
@@ -49,17 +49,17 @@ function cohortNamesForEntity_(id){const e=educationEntities_().find(x=>String(x
 const COHORTS = LEGACY_COHORTS;
 const APP_TIME_ZONE = "Africa/Cairo";
 const TABLES = {
-  Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","entity_id","entity_name","cohort","department","status","attachment_url","attachment_type","attachment_name","created_at","updated_at"],
+  Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","entity_id","entity_name","teacher_id","teacher_name","cohort","department","status","attachment_url","attachment_type","attachment_name","created_at","updated_at"],
   Admins: ["id","username","full_name","email","password_hash","password_salt","role","status","created_at"],
-  Courses: ["id","entity_id","title","description","cohort","department","teacher","image_url","status","sort_order","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Materials: ["id","entity_id","title","description","course_id","cohort","department","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Lectures: ["id","entity_id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Exams: ["id","entity_id","title","description","course_id","cohort","start_at","end_at","duration_minutes","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Results: ["id","entity_id","exam_id","student_id","student_code","cohort","score","max_score","notes","file_id","file_url","mime_type","image_url","published","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Attendance: ["id","entity_id","attendance_id","session_id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","checked_at","status","latitude","longitude","distance_meters","notes","created_at","attachment_url","attachment_type","attachment_name"],
-  AttendanceSessions: ["session_id","entity_id","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Announcements: ["id","entity_id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Complaints: ["id","entity_id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Courses: ["id","entity_id","teacher_id","teacher_name","title","description","cohort","department","teacher","image_url","status","sort_order","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Materials: ["id","entity_id","teacher_id","teacher_name","title","description","course_id","cohort","department","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Lectures: ["id","entity_id","teacher_id","teacher_name","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Exams: ["id","entity_id","teacher_id","teacher_name","title","description","course_id","cohort","start_at","end_at","duration_minutes","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Results: ["id","entity_id","teacher_id","teacher_name","exam_id","student_id","student_code","cohort","score","max_score","notes","file_id","file_url","mime_type","image_url","published","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Attendance: ["id","entity_id","teacher_id","teacher_name","attendance_id","session_id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","checked_at","status","latitude","longitude","distance_meters","notes","created_at","attachment_url","attachment_type","attachment_name"],
+  AttendanceSessions: ["session_id","entity_id","teacher_id","teacher_name","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Announcements: ["id","entity_id","teacher_id","teacher_name","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Complaints: ["id","entity_id","teacher_id","teacher_name","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
   Settings: ["key","value","updated_at","entity_id"],
   AuditLog: ["id","actor","action","section","record_id","details","created_at"]
 };
@@ -86,7 +86,9 @@ function doGet(e) {
     let rows = readRows_(SECTION_SHEET[section]);
     const requestedEntity=(user.role==="student"?String(user.entity_id||defaultEntityId_()):String(p.entity_id||user.entity_id||defaultEntityId_())).trim();
     if(section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||defaultEntityId_())===requestedEntity);}else{rows=rows.filter(r=>!String(r.entity_id||"")||String(r.entity_id)===requestedEntity);}
-    const requestedCohort = String(p.cohort || "").trim();
+    const requestedTeacher=String(p.teacher_id||"").trim();
+     if(requestedTeacher&&requestedTeacher!=="__all__")rows=rows.filter(r=>String(r.teacher_id||"")===requestedTeacher);
+     const requestedCohort = String(p.cohort || "").trim();
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
       if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
       else {
@@ -96,7 +98,8 @@ function doGet(e) {
       }
     }
     if (user.role === "student") rows = rows.filter(r => {
-      if (section === "results") return String(r.student_id) === String(user.id) && (r.published === true || String(r.published).toLowerCase() === "true" || String(r.published) === "1");
+      if (String(r.teacher_id||"")!==String(user.teacher_id||"")) return false;
+       if (section === "results") return String(r.student_id) === String(user.id) && (r.published === true || String(r.published).toLowerCase() === "true" || String(r.published) === "1");
       if (section === "attendance" || section === "complaints") return String(r.student_id) === String(user.id);
       const cohortKey = cohortField_(section) || "cohort";
       const rowCohort = r[cohortKey];
@@ -131,13 +134,14 @@ function doPost(e) {
     if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const selectedCohort = String(data.cohort || (section === "students" && action === "create" && data.record ? data.record.cohort : "") || "").trim();
     const selectedEntityId=String(data.entity_id||defaultEntityId_()).trim();
+    const selectedTeacherId=String(data.teacher_id||"").trim();
     if(section!=="settings"&&!educationEntities_().some(x=>String(x.id)===selectedEntityId))return out({success:false,message:"اختر جهة تعليمية صحيحة."});
     if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !cohortNamesForEntity_(selectedEntityId).includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
     if (section !== "settings" && ["create","update","delete","approve","reject"].includes(action) && (!selectedCohort || selectedCohort === "__all__")) return out({success:false,message:"اختر فرقة محددة قبل تنفيذ الإضافة أو التعديل أو الحذف."});
     if (action === "upload") return out(upload_(data,user));
     if (!SECTION_SHEET[section] || ["settings"].includes(section) && !isOwner_(user)) return out({success:false,message:"قسم غير صالح أو لا تملك صلاحية إدارته."});
     let result;
-    if (action === "create") result = createRecord_(section,data.record || {},user,selectedCohort,selectedEntityId);
+    if (action === "create") result = createRecord_(section,{...(data.record||{}),teacher_id:(data.record&&data.record.teacher_id)||selectedTeacherId},user,selectedCohort,selectedEntityId);
     else if (action === "update") result = updateRecord_(section,data.id,data.record || {},user,selectedCohort,selectedEntityId);
     else if (action === "delete") result = deleteRecord_(section,data.id,user,selectedCohort,selectedEntityId);
     else if (action === "approve" || action === "reject") result = setStudentStatus_(data.id,action === "approve" ? "active" : "rejected",user,selectedCohort,selectedEntityId);
@@ -214,6 +218,7 @@ function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
   }
   const id = Utilities.getUuid();
   const obj = {...record,id,entity_id:selectedEntityId,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(section!=="settings"){const teacherId=String(record.teacher_id||"").trim();if(teacherId){const entity=educationEntities_().find(x=>String(x.id)===String(selectedEntityId));const teacher=(entity&&entity.teachers||[]).find(t=>String(t.id)===teacherId);if(!teacher)throw new Error("اختر مدرساً مسجلاً داخل هذه الجهة.");obj.teacher_id=teacher.id;obj.teacher_name=teacher.name;}else if(["students","courses","materials","lectures","exams"].includes(section))throw new Error("اختر المدرس المسؤول عن هذا السجل.");}
   if(section==="attendance_sessions") {
     const code=String(record.access_code||"").trim(); let lat=Number(record.latitude),lon=Number(record.longitude); if(!Number.isFinite(lat)||!Number.isFinite(lon)){const coords=coordinatesFromMapsUrl_(record.location_url);if(!Number.isFinite(lat))lat=coords.latitude;if(!Number.isFinite(lon))lon=coords.longitude;} const radius=Number(record.radius_meters);
     const opens=new Date(record.opens_at).getTime(),closes=new Date(record.closes_at).getTime();
@@ -230,6 +235,7 @@ function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
   if (cohortKey && selectedCohort) obj[cohortKey] = selectedCohort;
   if (section === "students") {
     obj.entity_name=(educationEntities_().find(x=>String(x.id)===String(selectedEntityId))||{}).name||"";
+    if(!obj.teacher_id)throw new Error("اختر المدرس المرتبط بحساب الطالب.");
     if (!obj.full_name) throw new Error("اسم الطالب مطلوب.");
     if (!cohortNamesForEntity_(selectedEntityId).includes(String(obj.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب.");
     if (!obj.password || String(obj.password).length<8) throw new Error("حدد كلمة مرور للطالب لا تقل عن 8 أحرف.");
@@ -429,7 +435,7 @@ function authenticate_(token) {
 }
 function safeUser_(u) {
   const owner = u.role === "owner" || u.is_owner === true;
-  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:owner?"admin":(u.role || "student"),is_owner:owner,entity_id:u.entity_id||defaultEntityId_(),entity_name:u.entity_name||"كلية الإعلام – جامعة الأزهر",cohort:u.cohort || "",department:u.department || ""};
+  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:owner?"admin":(u.role || "student"),is_owner:owner,entity_id:u.entity_id||defaultEntityId_(),entity_name:u.entity_name||"كلية الإعلام – جامعة الأزهر",teacher_id:u.teacher_id||"",teacher_name:u.teacher_name||"",cohort:u.cohort || "",department:u.department || ""};
 }
 function isOwner_(u){ return !!u && (u.role === "owner" || u.is_owner === true); }
 
