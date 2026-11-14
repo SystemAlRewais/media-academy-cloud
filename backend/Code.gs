@@ -33,10 +33,10 @@ function doGet(e) {
     const p = (e && e.parameter) || {};
     const path = String(p.path || "");
     if (!path) return out({success:true,message:"Media Academy Cloud API is active."});
+    if(path==="/api/public/education") return out({success:true,entities:educationEntities_(),platformName:(readRows_("Settings").find(x=>String(x.key)==="platform_name")||{}).value||"المنصة التعليمية المفتوحة"});
     const m = path.match(/^\/api\/(admin|student)\/([a-zA-Z_]+)$/);
     if (!m) return out({success:false,message:"مسار غير معروف."});
     const role = m[1], section = m[2];
-    if(path==="/api/public/education") return out({success:true,entities:educationEntities_(),platformName:(readRows_("Settings").find(x=>String(x.key)==="platform_name")||{}).value||"المنصة التعليمية المفتوحة"});
     const user = authenticate_(p.token);
     if (!user) return out({success:false,message:"انتهت الجلسة أو بيانات الدخول غير صالحة."});
     if (role === "admin" && !isOwner_(user)) return out({success:false,message:"الدخول متاح لحساب الإدارة العامة فقط."});
@@ -45,13 +45,13 @@ function doGet(e) {
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
-    const requestedEntity=String(p.entity_id||"").trim();
+    const requestedEntity=String(p.entity_id||(user.role==="student"?user.entity_id:"")||"").trim();
     if(requestedEntity){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||"legacy-media")===requestedEntity);}
     const requestedCohort = String(p.cohort || "").trim();
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
       if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
       else {
-        if (!allCohortNames_().includes(requestedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
+        if (!cohortNamesForEntity_(requestedEntity||"legacy-media").includes(requestedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
         const field = cohortField_(section);
         if (field) rows = rows.filter(r => String(r[field] || "") === requestedCohort);
       }
@@ -101,7 +101,7 @@ function doPost(e) {
     if (action === "create") result = createRecord_(section,data.record || {},user,selectedCohort,selectedEntityId);
     else if (action === "update") result = updateRecord_(section,data.id,data.record || {},user,selectedCohort,selectedEntityId);
     else if (action === "delete") result = deleteRecord_(section,data.id,user,selectedCohort,selectedEntityId);
-    else if (action === "approve" || action === "reject") result = setStudentStatus_(data.id,action === "approve" ? "active" : "rejected",user,selectedCohort);
+    else if (action === "approve" || action === "reject") result = setStudentStatus_(data.id,action === "approve" ? "active" : "rejected",user,selectedCohort,selectedEntityId);
     else return out({success:false,message:"نوع العملية غير مدعوم."});
     return out({success:true,...result});
   } catch(err) { return out({success:false,message:String(err)}); }
@@ -191,7 +191,7 @@ function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
   if (cohortKey && selectedCohort) obj[cohortKey] = selectedCohort;
   if (section === "students") {
     if (!obj.full_name) throw new Error("اسم الطالب مطلوب.");
-    if (!allCohortNames_().includes(String(obj.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب.");
+    if (!cohortNamesForEntity_(selectedEntityId).includes(String(obj.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب.");
     if (!obj.password || String(obj.password).length<8) throw new Error("حدد كلمة مرور للطالب لا تقل عن 8 أحرف.");
     obj.student_code=generateStudentCode_();obj.username=obj.student_code;
     const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;
@@ -235,8 +235,8 @@ function updateRecord_(section,id,record,user,selectedCohort,selectedEntityId) {
     const oldCohort=cohortCol>=0?String(values[row][cohortCol]||""):"";
     const nextCohort=record.cohort===undefined?oldCohort:String(record.cohort||"");
     const nextStatus=record.status===undefined?(statusCol>=0?String(values[row][statusCol]||""):""):String(record.status);
-    if(nextCohort && !allCohortNames_().includes(nextCohort)) throw new Error("الفرقة الدراسية المحددة غير صحيحة.");
-    if(nextStatus==="active" && !COHORTS.includes(nextCohort)) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
+    if(nextCohort && !cohortNamesForEntity_(selectedEntityId).includes(nextCohort)) throw new Error("الفرقة الدراسية المحددة غير صحيحة.");
+    if(nextStatus==="active" && !cohortNamesForEntity_(selectedEntityId).includes(nextCohort)) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
   }
   if(obj.password){const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;}
   headers.forEach((h,c)=>{if(Object.prototype.hasOwnProperty.call(obj,h)) sh.getRange(row+1,c+1).setValue(obj[h]);});
@@ -258,10 +258,11 @@ function deleteRecord_(section,id,user,selectedCohort,selectedEntityId) {
   sh.deleteRow(row+1);audit_(user,"delete",section,id,{});
   return {message:"تم الحذف."};
 }
-function setStudentStatus_(id,status,user,selectedCohort) {
+function setStudentStatus_(id,status,user,selectedCohort,selectedEntityId) {
   const sh=db_().getSheetByName("Students"),v=sh.getDataRange().getValues(),h=v[0].map(String),idc=h.indexOf("id"),sc=h.indexOf("status"),uc=h.indexOf("updated_at");
   const row=v.findIndex((r,i)=>i>0 && String(r[idc])===String(id));
   if(row<1) throw new Error("الطالب غير موجود.");
+  assertRecordEntity_(v,h,row,selectedEntityId);
   assertRecordCohort_("students",v,h,row,selectedCohort);
   const cohortCol=h.indexOf("cohort");
   if(status==="active" && cohortCol>=0 && !String(v[row][cohortCol]||"").trim()) throw new Error("حدد الفرقة الدراسية للطالب قبل اعتماد الحساب.");
