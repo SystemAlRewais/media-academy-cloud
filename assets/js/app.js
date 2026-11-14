@@ -46,7 +46,7 @@ async function persistCollegeSettings(){
 }
 async function saveCollegeSettings(){
  const note=$("collegeSettingsNote");
- try{collegeSettings.colleges=collegeSettings.entities.map(x=>x.name);await persistCollegeSettings();renderCollegeSettings();applyCollegeBranding();if(note)note.textContent="تم حفظ إعدادات الجهات والمستويات سحابياً.";}
+ try{collegeSettings.colleges=collegeSettings.entities.map(x=>x.name);await persistCollegeSettings();selectedEntityId=activeEntity().id;sessionStorage.setItem("ma_admin_entity",selectedEntityId);const entitySelect=$("entitySelector");if(entitySelect){entitySelect.innerHTML=collegeSettings.entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");entitySelect.value=selectedEntityId;}COHORTS=(activeEntity().levels||[]).map(x=>x.name);if(!COHORTS.includes(selectedCohort))selectedCohort="__all__";const cohortSelect=$("cohortSelector");if(cohortSelect){cohortSelect.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");cohortSelect.value=selectedCohort;}renderCollegeSettings();applyCollegeBranding();if(note)note.textContent="تم حفظ إعدادات الجهات والمستويات سحابياً.";}
  catch(err){if(note)note.textContent="تعذر الحفظ: "+err.message;showToast("لم يتم حفظ الإعدادات.");}
 }
 const LEGACY_LEVELS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
