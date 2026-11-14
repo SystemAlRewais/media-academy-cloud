@@ -4,7 +4,7 @@
  * Deploy as Web App (execute as you; access: Anyone). Tables are created safely on first request.
  */
 const LEGACY_COHORTS = ["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
-function educationEntities_(){const row=readRows_("Settings").find(x=>String(x.key)==="education_entities");if(row&&row.value){try{const parsed=JSON.parse(row.value);if(Array.isArray(parsed)&&parsed.length)return parsed;}catch(e){}}return [{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_COHORTS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];}
+function educationEntities_(){const row=readRows_("Settings").find(x=>String(x.key)==="education_entities");if(row&&row.value){try{const parsed=JSON.parse(row.value);if(Array.isArray(parsed)&&parsed.length)return parsed.filter(x=>x&&x.name).map((x,i)=>({id:String(x.id||("entity-"+(i+1))),name:String(x.name),type:x.type||"college",levels:Array.isArray(x.levels)&&x.levels.length?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+(j+1))),name:String(v.name)})):LEGACY_COHORTS.map((name,j)=>({id:"default-"+(j+1),name}))}));}catch(e){}}return [{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_COHORTS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];}
 function defaultEntityId_(){const list=educationEntities_();return list.length?String(list[0].id||"legacy-media"):"legacy-media";}
 function allCohortNames_(){return [...new Set(educationEntities_().flatMap(e=>(e.levels||[]).map(x=>String(x.name||"").trim())).filter(Boolean))];}
 function cohortNamesForEntity_(id){const e=educationEntities_().find(x=>String(x.id)===String(id));return e?(e.levels||[]).map(x=>String(x.name||"").trim()).filter(Boolean):[];}
