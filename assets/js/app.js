@@ -14,23 +14,27 @@ const adminNav = [
 ];
 const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",attendance_sessions:"ATTENDANCE SESSIONS",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
 const DEFAULT_COLLEGE = "كلية الإعلام – جامعة الأزهر";
-let collegeSettings={colleges:[DEFAULT_COLLEGE],active:DEFAULT_COLLEGE};
+let collegeSettings={colleges:[DEFAULT_COLLEGE],entities:[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:[]}],active:DEFAULT_COLLEGE,platformName:"المنصة التعليمية المفتوحة"};
 async function loadCollegeSettings(){
- if(!currentUser||!isAdminUser())throw new Error("إعدادات الكليات متاحة للإدارة العامة فقط.");
+ if(!currentUser||!isAdminUser())throw new Error("إعدادات الجهات التعليمية متاحة للإدارة العامة فقط.");
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
  const values=Object.fromEntries(rows.map(x=>[String(x.key),String(x.value||"")]));
- let colleges;try{colleges=JSON.parse(values.college_list||"[]")}catch{colleges=[]}
- if(!Array.isArray(colleges)||!colleges.length)colleges=[DEFAULT_COLLEGE];
- colleges=colleges.filter(x=>typeof x==="string"&&x.trim());
- if(!colleges.length)colleges=[DEFAULT_COLLEGE];
- collegeSettings={colleges,active:(colleges.includes(values.active_college)?values.active_college:(values.college_name||colleges[0])),platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
- if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.colleges.unshift(collegeSettings.active);
+ let entities=[];try{entities=JSON.parse(values.education_entities||"[]")}catch{}
+ if(!Array.isArray(entities)||!entities.length){
+  let names=[];try{names=JSON.parse(values.college_list||"[]")}catch{}
+  if(!Array.isArray(names)||!names.length)names=[values.college_name||DEFAULT_COLLEGE];
+  entities=names.map((name,i)=>({id:"entity-"+i,name,type:"college",levels:LEGACY_LEVELS.slice()}));
+ }
+ entities=entities.filter(x=>x&&x.name).map((x,i)=>({id:String(x.id||("entity-"+i)),name:String(x.name),type:x.type||"college",levels:Array.isArray(x.levels)?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+j)),name:String(v.name)})):[]}));
+ if(!entities.length)entities=[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"level-"+i,name}))}];
+ collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
+ if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=entities[0].name;
  renderCollegeSettings();applyCollegeBranding();
- const platformInput=$("platformNameInput"),collegeInput=$("collegeNameInput");if(platformInput)platformInput.value=collegeSettings.platformName;if(collegeInput)collegeInput.value=collegeSettings.active;
+ const p=$("platformNameInput"),c=$("collegeNameInput");if(p)p.value=collegeSettings.platformName;if(c)c.value=collegeSettings.active;
 }
 async function persistCollegeSettings(){
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
- const values={college_list:JSON.stringify(collegeSettings.colleges),active_college:collegeSettings.active,platform_name:collegeSettings.platformName||"المنصة التعليمية المفتوحة",college_name:collegeSettings.active};
+ const values={education_entities:JSON.stringify(collegeSettings.entities),college_list:JSON.stringify(collegeSettings.colleges),active_college:collegeSettings.active,platform_name:collegeSettings.platformName||"المنصة التعليمية المفتوحة",college_name:collegeSettings.active};
  for(const [key,value] of Object.entries(values)){
   const existing=rows.find(x=>String(x.key)===key);
   await mutateRecord("settings",existing?"update":"create",key,{value});
@@ -38,8 +42,18 @@ async function persistCollegeSettings(){
 }
 async function saveCollegeSettings(){
  const note=$("collegeSettingsNote");
- try{if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=collegeSettings.colleges[0];await persistCollegeSettings();renderCollegeSettings();applyCollegeBranding();if(note)note.textContent="تم حفظ الإعدادات في قاعدة البيانات السحابية.";}
- catch(err){if(note)note.textContent="تعذر الحفظ: "+err.message;showToast("لم يتم حفظ إعدادات الكليات.");try{await loadCollegeSettings()}catch{}}
+ try{collegeSettings.colleges=collegeSettings.entities.map(x=>x.name);await persistCollegeSettings();renderCollegeSettings();applyCollegeBranding();if(note)note.textContent="تم حفظ إعدادات الجهات والمستويات سحابياً.";}
+ catch(err){if(note)note.textContent="تعذر الحفظ: "+err.message;showToast("لم يتم حفظ الإعدادات.");}
+}
+const LEGACY_LEVELS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
+function activeEntity(){return collegeSettings.entities.find(x=>x.name===collegeSettings.active)||collegeSettings.entities[0];}
+function renderCollegeSettings(){
+ const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;
+ select.innerHTML=collegeSettings.entities.map(x=>'<option value="'+escapeHtml(x.name)+'">'+escapeHtml(x.name)+'</option>').join("");select.value=collegeSettings.active;
+ const entity=activeEntity();
+ const levels=(entity.levels||[]).map(l=>'<div class="college-list-item"><span>'+escapeHtml(l.name)+'</span><button type="button" data-remove-level="'+escapeHtml(l.id)+'">حذف المستوى</button></div>').join("");
+ list.innerHTML='<div class="college-list-item"><b>'+escapeHtml(entity.name)+'</b><small>'+((entity.levels||[]).length)+' مستويات</small></div>'+levels+collegeSettings.entities.map(x=>x.name===entity.name?"":'<div class="college-list-item"><span>'+escapeHtml(x.name)+'</span><button type="button" data-remove-entity="'+escapeHtml(x.id)+'">حذف الجهة</button></div>').join("");
+ const type=$("entityTypeInput");if(type)type.value=entity.type||"college";
 }
 function applyCollegeBranding(){const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة";const college=collegeSettings.active||DEFAULT_COLLEGE;const el=$("collegeHeaderName");if(el)el.textContent=college;const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=college;document.title=platform+" | "+college;document.querySelectorAll(".brand-copy b,.sidebar-brand b").forEach(node=>node.textContent=platform.toUpperCase());document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();const authHeading=$("authTitle");if(authHeading&&authHeading.textContent.includes("الأكاديمية"))authHeading.textContent=authHeading.textContent.replaceAll("الأكاديمية",platform);}
 function renderCollegeSettings(){const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;select.innerHTML=collegeSettings.colleges.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join("");select.value=collegeSettings.active;list.innerHTML=collegeSettings.colleges.map(name=>'<div class="college-list-item"><span>'+escapeHtml(name)+'</span>'+(collegeSettings.colleges.length>1?'<button type="button" data-remove-college="'+encodeURIComponent(name)+'" aria-label="حذف '+escapeHtml(name)+'">حذف</button>':'<small>الكلية الافتراضية</small>')+'</div>').join("");}
@@ -85,11 +99,12 @@ async function api(path,{method="GET",body=null,auth=true}={}) {
 $("openCollegeSettings").addEventListener("click",openCollegeSettings);
 $("closeCollegeSettings").addEventListener("click",closeCollegeSettings);
 $("collegeSettingsModal").addEventListener("click",e=>{if(e.target===$("collegeSettingsModal"))closeCollegeSettings()});
-$("activeCollegeSelect").addEventListener("change",e=>{collegeSettings.active=e.target.value;const input=$("collegeNameInput");if(input)input.value=collegeSettings.active;saveCollegeSettings()});
+$("activeCollegeSelect").addEventListener("change",e=>{collegeSettings.active=e.target.value;const input=$("collegeNameInput");if(input)input.value=collegeSettings.active;renderCollegeSettings();saveCollegeSettings()});
 $("saveBrandButton").addEventListener("click",async()=>{const value=$("platformNameInput").value.trim();if(!value){$("collegeSettingsNote").textContent="اكتب اسم المنصة أولاً.";return}collegeSettings.platformName=value;await saveCollegeSettings()});
-$("saveCollegeNameButton").addEventListener("click",async()=>{const value=$("collegeNameInput").value.trim();if(!value){$("collegeSettingsNote").textContent="اكتب اسم الكلية أولاً.";return}if(!collegeSettings.colleges.includes(value))collegeSettings.colleges.push(value);collegeSettings.active=value;renderCollegeSettings();await saveCollegeSettings()});
-$("addCollegeButton").addEventListener("click",()=>{const input=$("newCollegeName"),name=input.value.trim();if(!name){$("collegeSettingsNote").textContent="اكتب اسم الكلية أولاً.";return}if(collegeSettings.colleges.some(x=>x.toLowerCase()===name.toLowerCase())){$("collegeSettingsNote").textContent="هذه الكلية مضافة بالفعل.";return}collegeSettings.colleges.push(name);collegeSettings.active=name;input.value="";$("collegeSettingsNote").textContent="تمت إضافة الكلية وحفظها على هذا المتصفح.";saveCollegeSettings()});
-$("collegeList").addEventListener("click",e=>{const btn=e.target.closest("[data-remove-college]");if(!btn)return;const name=decodeURIComponent(btn.dataset.removeCollege);collegeSettings.colleges=collegeSettings.colleges.filter(x=>x!==name);if(!collegeSettings.colleges.length)collegeSettings.colleges=[DEFAULT_COLLEGE];if(collegeSettings.active===name)collegeSettings.active=collegeSettings.colleges[0];saveCollegeSettings()});
+$("saveCollegeNameButton").addEventListener("click",async()=>{const name=$("collegeNameInput").value.trim();if(!name){$("collegeSettingsNote").textContent="اكتب اسم الجهة أولاً.";return}const entity=activeEntity();entity.name=name;collegeSettings.active=name;await saveCollegeSettings()});
+$("addCollegeButton").addEventListener("click",async()=>{const name=$("newCollegeName").value.trim(),type=$("entityTypeInput").value;if(!name){$("collegeSettingsNote").textContent="اكتب اسم الجهة أولاً.";return}if(collegeSettings.entities.some(x=>x.name.toLowerCase()===name.toLowerCase())){$("collegeSettingsNote").textContent="الجهة مضافة بالفعل.";return}collegeSettings.entities.push({id:"entity-"+Date.now(),name,type,levels:[]});collegeSettings.active=name;$("newCollegeName").value="";await saveCollegeSettings()});
+$("addLevelButton").addEventListener("click",async()=>{const name=$("newLevelName").value.trim(),entity=activeEntity();if(!name||!entity)return;if(entity.levels.some(x=>x.name.toLowerCase()===name.toLowerCase())){$("collegeSettingsNote").textContent="المستوى موجود بالفعل.";return}entity.levels.push({id:"level-"+Date.now(),name});$("newLevelName").value="";await saveCollegeSettings()});
+$("collegeList").addEventListener("click",async e=>{const level=e.target.closest("[data-remove-level]"),entityBtn=e.target.closest("[data-remove-entity]");if(level){const entity=activeEntity();entity.levels=entity.levels.filter(x=>x.id!==level.dataset.removeLevel);await saveCollegeSettings()}else if(entityBtn){if(collegeSettings.entities.length===1){$("collegeSettingsNote").textContent="لا يمكن حذف آخر جهة.";return}collegeSettings.entities=collegeSettings.entities.filter(x=>x.id!==entityBtn.dataset.removeEntity);collegeSettings.active=collegeSettings.entities[0].name;await saveCollegeSettings()}});
 applyCollegeBranding();
 $("studentRole").addEventListener("click",()=>selectRole("student"));
 $("adminRole").addEventListener("click",()=>selectRole("admin"));
@@ -110,14 +125,17 @@ $("loginForm").addEventListener("submit",async e=>{
  }catch(err){message("loginMessage",err.message)}
  finally{setBusy(btn,false,"تسجيل الدخول")}
 });
-$("openRegister").addEventListener("click",()=>{$("registerModal").classList.remove("hidden");$("regName").focus()});
+async function loadRegistrationEntities(){try{const data=await api("/api/public/education",{auth:false});const select=$("regEntity");select.innerHTML='<option value="">اختر الجهة التعليمية</option>'+(data.entities||[]).map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");select.dataset.entities=JSON.stringify(data.entities||[]);updateRegistrationLevels()}catch(err){message("registerMessage","تعذر تحميل الجهات التعليمية: "+err.message)}}
+function updateRegistrationLevels(){const entities=JSON.parse($("regEntity").dataset.entities||"[]"),entity=entities.find(x=>x.id===$("regEntity").value),select=$("regCohort");select.innerHTML='<option value="">اختر الفرقة أو المستوى</option>'+(entity?(entity.levels||[]):[]).map(x=>'<option value="'+escapeHtml(x.name)+'">'+escapeHtml(x.name)+'</option>').join("");}
+$("regEntity").addEventListener("change",updateRegistrationLevels);
+$("openRegister").addEventListener("click",()=>{$("registerModal").classList.remove("hidden");loadRegistrationEntities();$("regName").focus()});
 $("closeRegister").addEventListener("click",closeRegister);
 $("registerModal").addEventListener("click",e=>{if(e.target===$("registerModal"))closeRegister()});
 function closeRegister(){$("registerModal").classList.add("hidden");message("registerMessage","")}
 $("registerForm").addEventListener("submit",async e=>{
  e.preventDefault();message("registerMessage","");
- const body={name:$("regName").value.trim(),phone:$("regPhone").value.trim(),email:$("regEmail").value.trim(),cohort:$("regCohort").value,password:$("regPassword").value};
- if(!body.name||!body.phone||!body.cohort||body.password.length<8){message("registerMessage","أكمل الاسم والهاتف والفرقة، وكلمة المرور لا تقل عن 8 أحرف.");return}
+ const body={name:$("regName").value.trim(),phone:$("regPhone").value.trim(),email:$("regEmail").value.trim(),entity_id:$("regEntity").value,cohort:$("regCohort").value,password:$("regPassword").value};
+ if(!body.name||!body.phone||!body.entity_id||!body.cohort||body.password.length<8){message("registerMessage","أكمل الاسم والهاتف والجهة والفرقة أو المستوى، وكلمة المرور لا تقل عن 8 أحرف.");return}
  const btn=$("registerButton");setBusy(btn,true,"إرسال طلب التسجيل");
  try{const result=await api("/auth/register",{method:"POST",auth:false,body});message("registerMessage",result.message||"تم إرسال طلبك إلى إدارة الأكاديمية للمراجعة.",true);$("registerForm").reset()}
  catch(err){message("registerMessage",err.message)}
