@@ -188,10 +188,10 @@ $("loginForm").addEventListener("submit",async e=>{
  finally{setBusy(btn,false,"تسجيل الدخول")}
 });
 async function loadRegistrationEntities(){
- const select=$("regEntity"),typeSelect=$("regType"),levelSelect=$("regCohort"),registerButton=$("registerButton");
+ const select=$("regEntity"),typeSelect=$("regType"),levelSelect=$("regCohort"),teacherSelect=$("regTeacher"),registerButton=$("registerButton");
  select.dataset.entities="[]";
  select.innerHTML='<option value="">جارٍ تحميل الجهات التعليمية...</option>';
- levelSelect.innerHTML='<option value="">اختر الجهة أولاً</option>';
+ levelSelect.innerHTML='<option value="">اختر الجهة أولاً</option>';if(teacherSelect)teacherSelect.innerHTML='<option value="">اختر الجهة أولاً</option>';
  levelSelect.disabled=true;
  registerButton.disabled=false;
  try{
@@ -228,7 +228,7 @@ function updateRegistrationLevels(){
  select.disabled=!entity||!levels.length;
  if(levels.length===1)select.value=levels[0].name;
 }
-$("regEntity").addEventListener("change",updateRegistrationLevels);
+$("regEntity").addEventListener("change",()=>{const all=JSON.parse($("regEntity").dataset.entities||"[]"),entity=all.find(x=>String(x.id)===String($("regEntity").value)),ts=$("regTeacher");if(ts)ts.innerHTML='<option value="">اختر المدرس</option>'+(entity?.teachers||[]).map(t=>'<option value="'+escapeHtml(t.id)+'">'+escapeHtml(t.name)+'</option>').join("");updateRegistrationLevels();});
 if($("regType"))$("regType").addEventListener("change",updateRegistrationEntities);
 $("openRegister").addEventListener("click",()=>{$("registerModal").classList.remove("hidden");loadRegistrationEntities();$("regName").focus()});
 $("closeRegister").addEventListener("click",closeRegister);
@@ -236,8 +236,8 @@ $("registerModal").addEventListener("click",e=>{if(e.target===$("registerModal")
 function closeRegister(){$("registerModal").classList.add("hidden");message("registerMessage","")}
 $("registerForm").addEventListener("submit",async e=>{
  e.preventDefault();message("registerMessage","");
- const body={name:$("regName").value.trim(),phone:$("regPhone").value.trim(),email:$("regEmail").value.trim(),entity_id:$("regEntity").value,cohort:$("regCohort").value,password:$("regPassword").value};
- if(!body.name||!body.phone||!body.entity_id||!body.cohort||body.password.length<8){message("registerMessage","أكمل الاسم والهاتف والجهة والفرقة أو المستوى، وكلمة المرور لا تقل عن 8 أحرف.");return}
+ const body={name:$("regName").value.trim(),phone:$("regPhone").value.trim(),email:$("regEmail").value.trim(),entity_id:$("regEntity").value,teacher_id:$("regTeacher").value,cohort:$("regCohort").value,password:$("regPassword").value};
+ if(!body.name||!body.phone||!body.entity_id||!body.teacher_id||!body.cohort||body.password.length<8){message("registerMessage","أكمل الاسم والهاتف والجهة والمدرس والمستوى، وكلمة المرور لا تقل عن 8 أحرف.");return}
  const btn=$("registerButton");setBusy(btn,true,"إرسال طلب التسجيل");
  try{const result=await api("/auth/register",{method:"POST",auth:false,body});message("registerMessage",result.message||"تم إرسال طلبك إلى إدارة المنصة للمراجعة.",true);$("registerForm").reset()}
  catch(err){message("registerMessage",err.message)}
