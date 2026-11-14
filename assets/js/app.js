@@ -118,7 +118,7 @@ async function api(path,{method="GET",body=null,auth=true,params:extraParams={}}
   throw error;
  }finally{clearTimeout(timer)}
 }
-$("openCollegeSettings").addEventListener("click",openCollegeSettings);
+const openCollegeSettingsButton=$("openCollegeSettings");if(openCollegeSettingsButton)openCollegeSettingsButton.addEventListener("click",openCollegeSettings);
 $("closeCollegeSettings").addEventListener("click",closeCollegeSettings);
 $("collegeSettingsModal").addEventListener("click",e=>{if(e.target===$("collegeSettingsModal"))closeCollegeSettings()});
 $("activeCollegeSelect").addEventListener("change",e=>{collegeSettings.active=e.target.value;const input=$("collegeNameInput");if(input)input.value=collegeSettings.active;renderCollegeSettings();saveCollegeSettings()});
