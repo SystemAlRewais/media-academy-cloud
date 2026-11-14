@@ -28,7 +28,7 @@ async function loadCollegeSettings(){
  }
  entities=entities.filter(x=>x&&x.name).map((x,i)=>({id:String(x.id||("entity-"+i)),name:String(x.name),type:x.type||"college",levels:Array.isArray(x.levels)&&x.levels.length?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+j)),name:String(v.name)})):(String(x.type||"college")==="college"?LEGACY_LEVELS.map((name,j)=>({id:"legacy-"+(j+1),name})):[]),settings:x.settings&&typeof x.settings==="object"?x.settings:{}}));
  if(!entities.length)entities=[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"level-"+i,name}))}];
- collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة",academyName:""};
+ collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة",};
  if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=entities[0].name;
  const entityControl=$("entitySelector");if(entityControl){entityControl.innerHTML=entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");if(!entities.some(x=>x.id===selectedEntityId))selectedEntityId=entities[0].id;entityControl.value=selectedEntityId;}
  COHORTS=(entities.find(x=>x.id===selectedEntityId)||entities[0]).levels.map(x=>x.name);
@@ -165,6 +165,7 @@ async function loadRegistrationEntities(){
  try{
   const data=await api("/api/public/education",{auth:false});
   const entities=Array.isArray(data.entities)?data.entities:[];
+  if(data.apiVersion!=="2026.11.15-centers-v2")throw new Error("رابط الخدمة متصل بنسخة قديمة. يجب نشر ملف Code.gs المحدث على Google Apps Script أولاً.");
   if(!entities.length)throw new Error("الخادم لم يُرجع أي جهات تعليمية. راجع نشر نسخة Apps Script المحدثة.");
   select.dataset.entities=JSON.stringify(entities);
   if(typeSelect&&![ "college","center","other"].includes(typeSelect.value))typeSelect.value="college";
