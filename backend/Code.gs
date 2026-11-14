@@ -404,7 +404,7 @@ function submitComplaint_(data,user) {
   if(!subject || !message) return out({success:false,message:"اكتب موضوع الشكوى وتفاصيلها."});
   if(!user.cohort) return out({success:false,message:"لا توجد فرقة مرتبطة بحسابك. تواصل مع الإدارة."});
   const id=Utilities.getUuid(), now=new Date().toISOString();
-  appendObject_("Complaints",{id,entity_id:user.entity_id||defaultEntityId_(),student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,subject,message,reply:"",status:"new",created_at:now,updated_at:now});
+  appendObject_("Complaints",{id,entity_id:user.entity_id||defaultEntityId_(),teacher_id:user.teacher_id||"",teacher_name:user.teacher_name||"",student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,subject,message,reply:"",status:"new",created_at:now,updated_at:now});
   audit_(user,"create","complaints",id,{subject});
   return out({success:true,message:"تم إرسال الشكوى إلى الإدارة.",id});
 }
