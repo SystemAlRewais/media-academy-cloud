@@ -110,7 +110,7 @@ function doGet(e) {
     if (section === "settings" && !isOwner_(user)) rows = rows.filter(r => !/^admin_/i.test(String(r.key)));
     if (section === "attendance" && user.role === "student") {
       const now=Date.now();
-      const activeSessions=readRows_("AttendanceSessions").filter(x=>String(x.entity_id||defaultEntityId_())===String(user.entity_id||defaultEntityId_()) && String(x.cohort||"")===String(user.cohort||"") && String(x.status||"") === "active" && new Date(x.opens_at).getTime()<=now && new Date(x.closes_at).getTime()>=now).map(x=>({session_id:x.session_id,title:x.title,lecture_id:x.lecture_id,cohort:x.cohort,opens_at:x.opens_at,closes_at:x.closes_at,radius_meters:x.radius_meters}));
+      const activeSessions=readRows_("AttendanceSessions").filter(x=>String(x.entity_id||defaultEntityId_())===String(user.entity_id||defaultEntityId_()) && String(x.teacher_id||"")===String(user.teacher_id||"") && String(x.cohort||"")===String(user.cohort||"") && String(x.status||"") === "active" && new Date(x.opens_at).getTime()<=now && new Date(x.closes_at).getTime()>=now).map(x=>({session_id:x.session_id,title:x.title,lecture_id:x.lecture_id,cohort:x.cohort,opens_at:x.opens_at,closes_at:x.closes_at,radius_meters:x.radius_meters}));
       return out({success:true,items:rows,activeSessions});
     }
     if (section === "attendance_sessions") rows = rows.map(x=>{delete x.code_hash;delete x.code_salt;return x;});
@@ -329,6 +329,7 @@ function checkIn_(data,user) {
   const session=sessions.find(x=>String(x.session_id)===sessionId);
   if(!session) return out({success:false,message:"جلسة الحضور غير موجودة."});
   if(String(session.entity_id||defaultEntityId_())!==String(user.entity_id||defaultEntityId_())) return out({success:false,message:"هذه الجلسة تابعة لجهة تعليمية أخرى."});
+   if(String(session.teacher_id||"")!==String(user.teacher_id||"")) return out({success:false,message:"هذه الجلسة تابعة لمدرس آخر."});
   if(String(session.cohort)!==String(user.cohort)) return out({success:false,message:"هذه الجلسة ليست مخصصة لفرقتك."});
   if(String(session.status)!=="active") return out({success:false,message:"جلسة الحضور مغلقة."});
   const now=Date.now(), opens=new Date(session.opens_at).getTime(), closes=new Date(session.closes_at).getTime();
