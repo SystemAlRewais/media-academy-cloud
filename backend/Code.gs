@@ -13,11 +13,11 @@ function educationEntities_(){
         const id=String(x.id||("entity-"+(i+1))),type=String(x.type||"college");
         let levels=Array.isArray(x.levels)?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+(j+1))),name:String(v.name)})):[];
         if(!levels.length&&type!=="center")levels=LEGACY_COHORTS.map((name,j)=>({id:"default-"+(j+1),name}));
-        return {id,name:String(x.name),type,levels,settings:x.settings&&typeof x.settings==="object"?x.settings:{}};
+        return {id,name:String(x.name),type,levels};
       });
     }catch(e){}
   }
-  return [{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_COHORTS.map((name,i)=>({id:"legacy-"+(i+1),name})),settings:{}}];
+  return [{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_COHORTS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];
 }
 function defaultEntityId_(){const list=educationEntities_();return list.length?String(list[0].id||"legacy-media"):"legacy-media";}
 function allCohortNames_(){return [...new Set(educationEntities_().flatMap(e=>(e.levels||[]).map(x=>String(x.name||"").trim())).filter(Boolean))];}
