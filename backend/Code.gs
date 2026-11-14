@@ -6,20 +6,21 @@
 const LEGACY_COHORTS = ["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 function educationEntities_(){const row=readRows_("Settings").find(x=>String(x.key)==="education_entities");if(row&&row.value){try{const parsed=JSON.parse(row.value);if(Array.isArray(parsed)&&parsed.length)return parsed;}catch(e){}}return [{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_COHORTS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];}
 function allCohortNames_(){return [...new Set(educationEntities_().flatMap(e=>(e.levels||[]).map(x=>String(x.name||"").trim())).filter(Boolean))];}
+function cohortNamesForEntity_(id){const e=educationEntities_().find(x=>String(x.id)===String(id));return e?(e.levels||[]).map(x=>String(x.name||"").trim()).filter(Boolean):[];}
 const COHORTS = LEGACY_COHORTS;
 const APP_TIME_ZONE = "Africa/Cairo";
 const TABLES = {
   Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","entity_id","entity_name","cohort","department","status","attachment_url","attachment_type","attachment_name","created_at","updated_at"],
   Admins: ["id","username","full_name","email","password_hash","password_salt","role","status","created_at"],
-  Courses: ["id","title","description","cohort","department","teacher","image_url","status","sort_order","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Materials: ["id","title","description","course_id","cohort","department","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Lectures: ["id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Exams: ["id","title","description","course_id","cohort","start_at","end_at","duration_minutes","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Results: ["id","exam_id","student_id","student_code","cohort","score","max_score","notes","file_id","file_url","mime_type","image_url","published","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Attendance: ["id","attendance_id","session_id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","checked_at","status","latitude","longitude","distance_meters","notes","created_at","attachment_url","attachment_type","attachment_name"],
-  AttendanceSessions: ["session_id","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Announcements: ["id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Complaints: ["id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Courses: ["id","entity_id","title","description","cohort","department","teacher","image_url","status","sort_order","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Materials: ["id","entity_id","title","description","course_id","cohort","department","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Lectures: ["id","entity_id","title","description","course_id","cohort","department","teacher","lecture_date","start_time","end_time","room","meeting_url","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Exams: ["id","entity_id","title","description","course_id","cohort","start_at","end_at","duration_minutes","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Results: ["id","entity_id","exam_id","student_id","student_code","cohort","score","max_score","notes","file_id","file_url","mime_type","image_url","published","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Attendance: ["id","entity_id","attendance_id","session_id","student_id","student_code","cohort","lecture_id","attendance_date","check_in","checked_at","status","latitude","longitude","distance_meters","notes","created_at","attachment_url","attachment_type","attachment_name"],
+  AttendanceSessions: ["session_id","entity_id","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Announcements: ["id","entity_id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
+  Complaints: ["id","entity_id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
   Settings: ["key","value","updated_at"],
   AuditLog: ["id","actor","action","section","record_id","details","created_at"]
 };
@@ -32,10 +33,10 @@ function doGet(e) {
     const p = (e && e.parameter) || {};
     const path = String(p.path || "");
     if (!path) return out({success:true,message:"Media Academy Cloud API is active."});
-    if(path==="/api/public/education") return out({success:true,entities:educationEntities_(),platformName:(readRows_("Settings").find(x=>String(x.key)==="platform_name")||{}).value||"المنصة التعليمية المفتوحة"});
     const m = path.match(/^\/api\/(admin|student)\/([a-zA-Z_]+)$/);
     if (!m) return out({success:false,message:"مسار غير معروف."});
     const role = m[1], section = m[2];
+    if(path==="/api/public/education") return out({success:true,entities:educationEntities_(),platformName:(readRows_("Settings").find(x=>String(x.key)==="platform_name")||{}).value||"المنصة التعليمية المفتوحة"});
     const user = authenticate_(p.token);
     if (!user) return out({success:false,message:"انتهت الجلسة أو بيانات الدخول غير صالحة."});
     if (role === "admin" && !isOwner_(user)) return out({success:false,message:"الدخول متاح لحساب الإدارة العامة فقط."});
@@ -44,6 +45,8 @@ function doGet(e) {
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
+    const requestedEntity=String(p.entity_id||"").trim();
+    if(requestedEntity){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||"legacy-media")===requestedEntity);}
     const requestedCohort = String(p.cohort || "").trim();
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
       if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
@@ -88,14 +91,16 @@ function doPost(e) {
     if (user.role === "student" && action === "checkin") return checkIn_(data,user);
     if (!isOwner_(user)) return out({success:false,message:"هذه العملية متاحة لحساب الإدارة العامة فقط."});
     const selectedCohort = String(data.cohort || "").trim();
-    if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !allCohortNames_().includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
+    const selectedEntityId=String(data.entity_id||"legacy-media").trim();
+    if(section!=="settings"&&!educationEntities_().some(x=>String(x.id)===selectedEntityId))return out({success:false,message:"اختر جهة تعليمية صحيحة."});
+    if (section !== "settings" && action !== "upload" && selectedCohort && selectedCohort !== "__all__" && !(selectedCohort === "__unassigned__" && section === "students") && !cohortNamesForEntity_(selectedEntityId).includes(selectedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
     if (section !== "settings" && ["create","update","delete","approve","reject"].includes(action) && (!selectedCohort || selectedCohort === "__all__")) return out({success:false,message:"اختر فرقة محددة قبل تنفيذ الإضافة أو التعديل أو الحذف."});
     if (action === "upload") return out(upload_(data,user));
     if (!SECTION_SHEET[section] || ["settings"].includes(section) && !isOwner_(user)) return out({success:false,message:"قسم غير صالح أو لا تملك صلاحية إدارته."});
     let result;
-    if (action === "create") result = createRecord_(section,data.record || {},user,selectedCohort);
-    else if (action === "update") result = updateRecord_(section,data.id,data.record || {},user,selectedCohort);
-    else if (action === "delete") result = deleteRecord_(section,data.id,user,selectedCohort);
+    if (action === "create") result = createRecord_(section,data.record || {},user,selectedCohort,selectedEntityId);
+    else if (action === "update") result = updateRecord_(section,data.id,data.record || {},user,selectedCohort,selectedEntityId);
+    else if (action === "delete") result = deleteRecord_(section,data.id,user,selectedCohort,selectedEntityId);
     else if (action === "approve" || action === "reject") result = setStudentStatus_(data.id,action === "approve" ? "active" : "rejected",user,selectedCohort);
     else return out({success:false,message:"نوع العملية غير مدعوم."});
     return out({success:true,...result});
@@ -159,7 +164,7 @@ function register_(d) {
   return out({success:true,message:"تم إرسال طلبك للمراجعة. كود الطالب الخاص بك: "+code,studentCode:code});
 }
 
-function createRecord_(section,record,user,selectedCohort) {
+function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
   const sheetName = SECTION_SHEET[section];
   if (section === "settings") {
     const key=String(record.key||"").trim(); if(!key) throw new Error("اسم الإعداد مطلوب.");
@@ -169,7 +174,7 @@ function createRecord_(section,record,user,selectedCohort) {
     audit_(user,"create",section,key,record); return {message:"تمت إضافة الإعداد.",id:key};
   }
   const id = Utilities.getUuid();
-  const obj = {...record,id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  const obj = {...record,id,entity_id:selectedEntityId,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   if(section==="attendance_sessions") {
     const code=String(record.access_code||"").trim(); let lat=Number(record.latitude),lon=Number(record.longitude); if(!Number.isFinite(lat)||!Number.isFinite(lon)){const coords=coordinatesFromMapsUrl_(record.location_url);if(!Number.isFinite(lat))lat=coords.latitude;if(!Number.isFinite(lon))lon=coords.longitude;} const radius=Number(record.radius_meters);
     const opens=new Date(record.opens_at).getTime(),closes=new Date(record.closes_at).getTime();
@@ -196,7 +201,7 @@ function createRecord_(section,record,user,selectedCohort) {
   audit_(user,"create",section,id,obj);
   return {message:"تمت الإضافة بنجاح.",id,...(section==="students"?{studentCode:obj.student_code}: {})};
 }
-function updateRecord_(section,id,record,user,selectedCohort) {
+function updateRecord_(section,id,record,user,selectedCohort,selectedEntityId) {
   if (!id) throw new Error("معرف السجل مطلوب.");
   if (section === "settings") {
     const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key"),vc=h.indexOf("value"),uc=h.indexOf("updated_at");
@@ -207,6 +212,7 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
   const idx=headers.indexOf(recordIdField_(section)), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
+  assertRecordEntity_(values,headers,row,selectedEntityId);
   assertRecordCohort_(section, values, headers, row, selectedCohort);
   const obj={...record,updated_at:new Date().toISOString()};
   if(section==="attendance_sessions") {
@@ -237,7 +243,7 @@ function updateRecord_(section,id,record,user,selectedCohort) {
   audit_(user,"update",section,id,obj);
   return {message:"تم تحديث البيانات."};
 }
-function deleteRecord_(section,id,user,selectedCohort) {
+function deleteRecord_(section,id,user,selectedCohort,selectedEntityId) {
   if (!id) throw new Error("معرف السجل مطلوب.");
   if (section === "settings") {
     const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key");
@@ -247,6 +253,7 @@ function deleteRecord_(section,id,user,selectedCohort) {
   const sh=db_().getSheetByName(SECTION_SHEET[section]),v=sh.getDataRange().getValues(),headers=v[0].map(String),idx=headers.indexOf(recordIdField_(section));
   const row=v.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
   if(row<1) throw new Error("السجل غير موجود.");
+  assertRecordEntity_(v,headers,row,selectedEntityId);
   assertRecordCohort_(section,v,headers,row,selectedCohort);
   sh.deleteRow(row+1);audit_(user,"delete",section,id,{});
   return {message:"تم الحذف."};
@@ -460,6 +467,7 @@ function ensureHeadersSafe_(sheet, required) {
   const missing = required.filter(h => !current.includes(h));
   if (missing.length) sheet.getRange(1,last+1,1,missing.length).setValues([missing]);
 }
+function assertRecordEntity_(values,headers,rowIndex,entityId){const col=headers.indexOf("entity_id");const actual=col>=0?String(values[rowIndex][col]||"legacy-media"):"legacy-media";if(actual!==String(entityId||"legacy-media"))throw new Error("لا يمكن الوصول إلى سجل تابع لجهة تعليمية أخرى.");}
 function assertRecordCohort_(section, values, headers, rowIndex, selectedCohort) {
   const field = cohortField_(section);
   if (!field) return;
