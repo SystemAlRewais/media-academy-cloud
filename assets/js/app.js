@@ -132,10 +132,40 @@ $("loginForm").addEventListener("submit",async e=>{
  }catch(err){message("loginMessage",err.message)}
  finally{setBusy(btn,false,"تسجيل الدخول")}
 });
-async function loadRegistrationEntities(){const select=$("regEntity");try{const data=await api("/api/public/education",{auth:false});let entities=Array.isArray(data.entities)?data.entities:[];if(!entities.length)throw new Error("empty");entities=entities.map(x=>({...x,levels:Array.isArray(x.levels)&&x.levels.length?x.levels:LEGACY_LEVELS.map((name,i)=>({id:"default-"+(i+1),name}))}));select.innerHTML='<option value="">اختر الجهة التعليمية</option>'+entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");select.dataset.entities=JSON.stringify(entities);if(entities.length===1)select.value=entities[0].id;updateRegistrationLevels()}catch(err){const fallback=[{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",levels:LEGACY_LEVELS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];select.innerHTML='<option value="legacy-media">كلية الإعلام – جامعة الأزهر</option>';select.value="legacy-media";select.dataset.entities=JSON.stringify(fallback);updateRegistrationLevels();message("registerMessage","تم تحميل بيانات التسجيل الافتراضية. يمكنك إكمال التسجيل الآن.")}}
+async function loadRegistrationEntities(){
+ const select=$("regEntity"),typeSelect=$("regType");
+ try{
+  const data=await api("/api/public/education",{auth:false});
+  const entities=Array.isArray(data.entities)?data.entities:[];
+  if(!entities.length)throw new Error("لم يتم إعداد أي جهة تعليمية بعد.");
+  select.dataset.entities=JSON.stringify(entities);
+  if(typeSelect&&!["college","center","other"].includes(typeSelect.value))typeSelect.value="college";
+  updateRegistrationEntities();
+ }catch(err){
+  const fallback=[{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];
+  select.dataset.entities=JSON.stringify(fallback);
+  if(typeSelect)typeSelect.value="college";
+  updateRegistrationEntities();
+  message("registerMessage","تعذر تحميل الجهات من الخادم؛ تظهر كلية الإعلام كخيار احتياطي فقط. "+err.message);
+ }
+}
+function updateRegistrationEntities(){
+ const typeSelect=$("regType"),select=$("regEntity"),all=JSON.parse(select.dataset.entities||"[]");
+ const type=typeSelect?typeSelect.value:"college",entities=all.filter(x=>String(x.type||"college")===type);
+ select.innerHTML='<option value="">اختر الجهة التعليمية</option>'+entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");
+ if(entities.length===1)select.value=entities[0].id;
+ updateRegistrationLevels();
+}
 async function loadPublicBranding(){try{const data=await api("/api/public/education",{auth:false});collegeSettings.academyName=data.academyName||collegeSettings.academyName;collegeSettings.platformName=data.platformName||collegeSettings.platformName;if(data.activeCollege)collegeSettings.active=data.activeCollege;applyCollegeBranding();}catch(err){console.warn("Public branding unavailable",err.message)}}
-function updateRegistrationLevels(){const entities=JSON.parse($("regEntity").dataset.entities||"[]"),entity=entities.find(x=>x.id===$("regEntity").value),select=$("regCohort");const levels=entity&&Array.isArray(entity.levels)&&entity.levels.length?entity.levels:LEGACY_LEVELS.map((name,i)=>({id:"default-"+(i+1),name}));select.innerHTML='<option value="">اختر الفرقة أو المستوى</option>'+levels.map(x=>'<option value="'+escapeHtml(x.name)+'">'+escapeHtml(x.name)+'</option>').join("");if(levels.length===1)select.value=levels[0].name;}
+function updateRegistrationLevels(){
+ const entities=JSON.parse($("regEntity").dataset.entities||"[]"),entity=entities.find(x=>x.id===$("regEntity").value),select=$("regCohort");
+ const levels=entity&&Array.isArray(entity.levels)?entity.levels:[];
+ select.innerHTML='<option value="">'+(entity?(levels.length?"اختر الفرقة أو المستوى":"لم تتم إضافة مستويات لهذه الجهة بعد"):"اختر الجهة أولاً")+'</option>'+levels.map(x=>'<option value="'+escapeHtml(x.name)+'">'+escapeHtml(x.name)+'</option>').join("");
+ select.disabled=!entity||!levels.length;
+ if(levels.length===1)select.value=levels[0].name;
+}
 $("regEntity").addEventListener("change",updateRegistrationLevels);
+if($("regType"))$("regType").addEventListener("change",updateRegistrationEntities);
 $("openRegister").addEventListener("click",()=>{$("registerModal").classList.remove("hidden");loadRegistrationEntities();$("regName").focus()});
 $("closeRegister").addEventListener("click",closeRegister);
 $("registerModal").addEventListener("click",e=>{if(e.target===$("registerModal"))closeRegister()});
