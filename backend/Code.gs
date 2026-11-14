@@ -3,10 +3,13 @@
  * Install: set SPREADSHEET_ID, ADMIN_USERNAME, ADMIN_PASSWORD in Script Properties.
  * Deploy as Web App (execute as you; access: Anyone). Tables are created safely on first request.
  */
-const COHORTS = ["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
+const LEGACY_COHORTS = ["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
+function educationEntities_(){const row=readRows_("Settings").find(x=>String(x.key)==="education_entities");if(row&&row.value){try{const parsed=JSON.parse(row.value);if(Array.isArray(parsed)&&parsed.length)return parsed;}catch(e){}}return [{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_COHORTS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];}
+function allCohortNames_(){return [...new Set(educationEntities_().flatMap(e=>(e.levels||[]).map(x=>String(x.name||"").trim())).filter(Boolean))];}
+const COHORTS = LEGACY_COHORTS;
 const APP_TIME_ZONE = "Africa/Cairo";
 const TABLES = {
-  Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","cohort","department","status","attachment_url","attachment_type","attachment_name","created_at","updated_at"],
+  Students: ["id","student_code","username","full_name","email","phone","password_hash","password_salt","role","entity_id","entity_name","cohort","department","status","attachment_url","attachment_type","attachment_name","created_at","updated_at"],
   Admins: ["id","username","full_name","email","password_hash","password_salt","role","status","created_at"],
   Courses: ["id","title","description","cohort","department","teacher","image_url","status","sort_order","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
   Materials: ["id","title","description","course_id","cohort","department","file_id","file_url","mime_type","image_url","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
@@ -29,6 +32,7 @@ function doGet(e) {
     const p = (e && e.parameter) || {};
     const path = String(p.path || "");
     if (!path) return out({success:true,message:"Media Academy Cloud API is active."});
+    if(path==="/api/public/education") return out({success:true,entities:educationEntities_(),platformName:(readRows_("Settings").find(x=>String(x.key)==="platform_name")||{}).value||"المنصة التعليمية المفتوحة"});
     const m = path.match(/^\/api\/(admin|student)\/([a-zA-Z_]+)$/);
     if (!m) return out({success:false,message:"مسار غير معروف."});
     const role = m[1], section = m[2];
@@ -44,7 +48,7 @@ function doGet(e) {
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
       if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
       else {
-        if (!COHORTS.includes(requestedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
+        if (!allCohortNames_().includes(requestedCohort)) return out({success:false,message:"الفرقة المحددة غير معروفة."});
         const field = cohortField_(section);
         if (field) rows = rows.filter(r => String(r[field] || "") === requestedCohort);
       }
@@ -146,11 +150,12 @@ function generateStudentCode_() {
 }
 function register_(d) {
   const name=String(d.name||"").trim(), password=String(d.password||""), phone=String(d.phone||"").trim();
-  const email=String(d.email||"").trim(), cohort=String(d.cohort||"").trim();
-  if(!name||!phone||!COHORTS.includes(cohort)||password.length<8) return out({success:false,message:"أكمل الاسم ورقم الهاتف والفرقة، وكلمة المرور 8 أحرف على الأقل."});
+  const email=String(d.email||"").trim(), cohort=String(d.cohort||"").trim(), entityId=String(d.entity_id||"").trim();
+  const entity=educationEntities_().find(x=>String(x.id)===entityId), level=entity&&(entity.levels||[]).find(x=>String(x.name)===cohort);
+  if(!name||!phone||!entity||!level||password.length<8) return out({success:false,message:"اختر الجهة التعليمية والفرقة أو المستوى الصحيح، وأكمل بياناتك."});
   if(email && readRows_("Students").some(r=>String(r.email||"").toLowerCase()===email.toLowerCase())) return out({success:false,message:"البريد الإلكتروني مسجل بالفعل."});
   const code=generateStudentCode_(), salt=Utilities.getUuid(), now=new Date().toISOString();
-  appendObject_("Students",{id:Utilities.getUuid(),student_code:code,username:code,full_name:name,email,phone,password_hash:hash_(password,salt),password_salt:salt,role:"student",cohort,department:"",status:"pending",created_at:now,updated_at:now});
+  appendObject_("Students",{id:Utilities.getUuid(),student_code:code,username:code,full_name:name,email,phone,password_hash:hash_(password,salt),password_salt:salt,role:"student",entity_id:entity.id,entity_name:entity.name,cohort,department:"",status:"pending",created_at:now,updated_at:now});
   return out({success:true,message:"تم إرسال طلبك للمراجعة. كود الطالب الخاص بك: "+code,studentCode:code});
 }
 
@@ -181,7 +186,7 @@ function createRecord_(section,record,user,selectedCohort) {
   if (cohortKey && selectedCohort) obj[cohortKey] = selectedCohort;
   if (section === "students") {
     if (!obj.full_name) throw new Error("اسم الطالب مطلوب.");
-    if (!COHORTS.includes(String(obj.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب.");
+    if (!allCohortNames_().includes(String(obj.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب.");
     if (!obj.password || String(obj.password).length<8) throw new Error("حدد كلمة مرور للطالب لا تقل عن 8 أحرف.");
     obj.student_code=generateStudentCode_();obj.username=obj.student_code;
     const salt=Utilities.getUuid();obj.password_salt=salt;obj.password_hash=hash_(obj.password,salt);delete obj.password;
@@ -369,7 +374,7 @@ function authenticate_(token) {
 }
 function safeUser_(u) {
   const owner = u.role === "owner" || u.is_owner === true;
-  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:owner?"admin":(u.role || "student"),is_owner:owner,cohort:u.cohort || "",department:u.department || ""};
+  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:owner?"admin":(u.role || "student"),is_owner:owner,entity_id:u.entity_id||"",entity_name:u.entity_name||"",cohort:u.cohort || "",department:u.department || ""};
 }
 function isOwner_(u){ return !!u && (u.role === "owner" || u.is_owner === true); }
 
@@ -413,7 +418,7 @@ function ensureDatabaseSafe_(){
   if(studentCode && studentPassword){
     const studentName=String(props.getProperty("STUDENT_FULL_NAME")||"طالب تجريبي").trim();
     const studentCohort=String(props.getProperty("STUDENT_COHORT")||"الفرقة الأولى").trim();
-    if(!COHORTS.includes(studentCohort)) throw new Error("STUDENT_COHORT يجب أن تكون إحدى الفرق الأربع.");
+    if(!allCohortNames_().includes(studentCohort)) throw new Error("STUDENT_COHORT يجب أن تكون إحدى الفرق أو المستويات المحفوظة.");
     const sh=ss.getSheetByName("Students"), values=sh.getDataRange().getValues(), headers=values[0].map(String);
     const codeCol=headers.indexOf("student_code");
     const row=values.findIndex((r,i)=>i>0 && String(r[codeCol]||"").trim().toLowerCase()===studentCode.toLowerCase());
