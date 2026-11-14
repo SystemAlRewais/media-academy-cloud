@@ -4,7 +4,7 @@ const cfg = window.MEDIA_ACADEMY_CONFIG || {API_BASE_URL:"",REQUEST_TIMEOUT_MS:1
 const $ = id => document.getElementById(id);
 const isAdminUser = () => !!currentUser && (currentUser.role === "admin" || currentUser.role === "owner");
 let role = "student", token = null, currentUser = null, activeSection = "home";
-const COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
+let COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 let selectedCohort=sessionStorage.getItem("ma_admin_cohort")||"__all__";
 const studentNav = [
  ["home","الرئيسية","⌂"],["profile","ملفي الشخصي","◉"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات","▶"],["schedule","جدول المحاضرات","▦"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"]
@@ -29,6 +29,8 @@ async function loadCollegeSettings(){
  if(!entities.length)entities=[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"level-"+i,name}))}];
  collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
  if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=entities[0].name;
+ COHORTS=[...new Set(entities.flatMap(x=>(x.levels||[]).map(l=>l.name)))];
+ const cohortControl=$("cohortSelector");if(cohortControl){cohortControl.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");if(selectedCohort!=="__all__"&&selectedCohort!=="__unassigned__"&&!COHORTS.includes(selectedCohort))selectedCohort="__all__";cohortControl.value=selectedCohort;}
  renderCollegeSettings();applyCollegeBranding();
  const p=$("platformNameInput"),c=$("collegeNameInput");if(p)p.value=collegeSettings.platformName;if(c)c.value=collegeSettings.active;
 }
@@ -56,7 +58,7 @@ function renderCollegeSettings(){
  const type=$("entityTypeInput");if(type)type.value=entity.type||"college";
 }
 function applyCollegeBranding(){const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة";const college=collegeSettings.active||DEFAULT_COLLEGE;const el=$("collegeHeaderName");if(el)el.textContent=college;const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=college;document.title=platform+" | "+college;document.querySelectorAll(".brand-copy b,.sidebar-brand b").forEach(node=>node.textContent=platform.toUpperCase());document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();const authHeading=$("authTitle");if(authHeading&&authHeading.textContent.includes("الأكاديمية"))authHeading.textContent=authHeading.textContent.replaceAll("الأكاديمية",platform);}
-function renderCollegeSettings(){const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;select.innerHTML=collegeSettings.colleges.map(name=>'<option value="'+escapeHtml(name)+'">'+escapeHtml(name)+'</option>').join("");select.value=collegeSettings.active;list.innerHTML=collegeSettings.colleges.map(name=>'<div class="college-list-item"><span>'+escapeHtml(name)+'</span>'+(collegeSettings.colleges.length>1?'<button type="button" data-remove-college="'+encodeURIComponent(name)+'" aria-label="حذف '+escapeHtml(name)+'">حذف</button>':'<small>الكلية الافتراضية</small>')+'</div>').join("");}
+
 async function openCollegeSettings(){try{await loadCollegeSettings();$("collegeSettingsModal").classList.remove("hidden")}catch(err){showToast(err.message)}}
 function closeCollegeSettings(){$("collegeSettingsModal").classList.add("hidden")}
 function message(id,text,success=false){const el=$(id);if(!el)return;el.textContent=text;el.classList.toggle("success",success)}
