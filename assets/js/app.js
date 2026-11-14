@@ -70,8 +70,8 @@ function applyCollegeBranding(){
  document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");
  const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();
  const authHeading=$("authTitle");if(authHeading&&authHeading.textContent.includes("الأكاديمية"))authHeading.textContent=authHeading.textContent.replaceAll("الأكاديمية",platform);
- const settings=collegeSettings.activeEntitySettings||activeEntity()?.settings||{};
- const welcome=document.querySelector(".hero-lead");if(welcome&&settings.welcomeMessage)welcome.textContent=settings.welcomeMessage;
+ const settings=currentUser&&currentUser.role==="student"?(collegeSettings.activeEntitySettings||{}):(activeEntity()?.settings||{});
+ const welcome=document.querySelector(".hero-lead");if(welcome)welcome.textContent=settings.welcomeMessage||"كل ما تحتاجه في رحلتك التعليمية، في مساحة واحدة تجمع المحاضرات والمواد الدراسية والاختبارات والحضور والمتابعة.";
  const logoUrl=String(settings.logoUrl||"").trim();let safeLogo="";
  try{const parsed=new URL(logoUrl);if(parsed.protocol==="https:"||parsed.protocol==="http:")safeLogo=parsed.href;}catch(e){}
  document.querySelectorAll(".brand-mark").forEach(mark=>{mark.style.backgroundImage=safeLogo?'url("'+safeLogo.replace(/["\\]/g,"")+'")':"";mark.style.backgroundSize="cover";mark.style.backgroundPosition="center";if(safeLogo)mark.textContent="";else mark.textContent="MA";});
