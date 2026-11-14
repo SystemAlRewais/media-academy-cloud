@@ -41,7 +41,7 @@ function doGet(e) {
     if (!user) return out({success:false,message:"انتهت الجلسة أو بيانات الدخول غير صالحة."});
     if (role === "admin" && !isOwner_(user)) return out({success:false,message:"الدخول متاح لحساب الإدارة العامة فقط."});
     if (role === "student" && user.role !== "student" && user.role !== "admin" && user.role !== "owner") return out({success:false,message:"غير مصرح."});
-    if (section === "home") return out(homeData_(user, String(p.cohort || "")));
+    if (section === "home") return out(homeData_(user, String(p.cohort || ""),String(p.entity_id||user.entity_id||"legacy-media")));
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
@@ -68,7 +68,7 @@ function doGet(e) {
     if (section === "settings" && !isOwner_(user)) rows = rows.filter(r => !/^admin_/i.test(String(r.key)));
     if (section === "attendance" && user.role === "student") {
       const now=Date.now();
-      const activeSessions=readRows_("AttendanceSessions").filter(x=>String(x.cohort||"")===String(user.cohort||"") && String(x.status||"") === "active" && new Date(x.opens_at).getTime()<=now && new Date(x.closes_at).getTime()>=now).map(x=>({session_id:x.session_id,title:x.title,lecture_id:x.lecture_id,cohort:x.cohort,opens_at:x.opens_at,closes_at:x.closes_at,radius_meters:x.radius_meters}));
+      const activeSessions=readRows_("AttendanceSessions").filter(x=>String(x.entity_id||"legacy-media")===String(user.entity_id||"legacy-media") && String(x.cohort||"")===String(user.cohort||"") && String(x.status||"") === "active" && new Date(x.opens_at).getTime()<=now && new Date(x.closes_at).getTime()>=now).map(x=>({session_id:x.session_id,title:x.title,lecture_id:x.lecture_id,cohort:x.cohort,opens_at:x.opens_at,closes_at:x.closes_at,radius_meters:x.radius_meters}));
       return out({success:true,items:rows,activeSessions});
     }
     if (section === "attendance_sessions") rows = rows.map(x=>{delete x.code_hash;delete x.code_salt;return x;});
@@ -277,6 +277,7 @@ function checkIn_(data,user) {
   const sessions=readRows_("AttendanceSessions");
   const session=sessions.find(x=>String(x.session_id)===sessionId);
   if(!session) return out({success:false,message:"جلسة الحضور غير موجودة."});
+  if(String(session.entity_id||"legacy-media")!==String(user.entity_id||"legacy-media")) return out({success:false,message:"هذه الجلسة تابعة لجهة تعليمية أخرى."});
   if(String(session.cohort)!==String(user.cohort)) return out({success:false,message:"هذه الجلسة ليست مخصصة لفرقتك."});
   if(String(session.status)!=="active") return out({success:false,message:"جلسة الحضور مغلقة."});
   const now=Date.now(), opens=new Date(session.opens_at).getTime(), closes=new Date(session.closes_at).getTime();
@@ -366,8 +367,10 @@ function upload_(d,user) {
   audit_(user,"upload","materials",file.getId(),{name});
   return {message:"تم رفع الملف إلى Google Drive.",fileId:file.getId(),url:file.getUrl()};
 }
-function homeData_(u, selectedCohort) {
+function homeData_(u, selectedCohort, selectedEntityId) {
   let students=readRows_("Students"),courses=readRows_("Courses"),materials=readRows_("Materials"),lectures=readRows_("Lectures"),exams=readRows_("Exams"),announcements=readRows_("Announcements");
+  const inEntity=x=>String(x.entity_id||"legacy-media")===String(selectedEntityId||"legacy-media");
+  students=students.filter(inEntity);courses=courses.filter(inEntity);materials=materials.filter(inEntity);lectures=lectures.filter(inEntity);exams=exams.filter(inEntity);announcements=announcements.filter(inEntity);
   if(u.role==="student") return {success:true,stats:{"المواد":courses.filter(x=>!x.cohort||x.cohort===u.cohort).length,"الملفات":materials.filter(x=>!x.cohort||x.cohort===u.cohort).length,"المحاضرات":lectures.filter(x=>!x.cohort||x.cohort===u.cohort).length},message:"مرحباً بك في سحابة كلية الإعلام – جامعة الأزهر"};
   if(selectedCohort && selectedCohort!=="__all__" && selectedCohort!=="__unassigned__") {
     students=students.filter(x=>String(x.cohort||"")===selectedCohort); courses=courses.filter(x=>String(x.cohort||"")===selectedCohort); materials=materials.filter(x=>String(x.cohort||"")===selectedCohort); lectures=lectures.filter(x=>String(x.cohort||"")===selectedCohort); exams=exams.filter(x=>String(x.cohort||"")===selectedCohort); announcements=announcements.filter(x=>String(x.target_cohort||"")===selectedCohort);
