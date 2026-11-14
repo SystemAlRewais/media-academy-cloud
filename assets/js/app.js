@@ -15,7 +15,7 @@ const adminNav = [
 ];
 const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",attendance_sessions:"ATTENDANCE SESSIONS",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
 const DEFAULT_COLLEGE = "كلية الإعلام – جامعة الأزهر";
-let collegeSettings={colleges:[DEFAULT_COLLEGE],entities:[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:[]}],active:DEFAULT_COLLEGE,platformName:"المنصة التعليمية المفتوحة",academyName:""};
+let collegeSettings={colleges:[DEFAULT_COLLEGE],entities:[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:[]}],active:DEFAULT_COLLEGE,platformName:"المنصة التعليمية المفتوحة",};
 async function loadCollegeSettings(){
  if(!currentUser||!isAdminUser())throw new Error("إعدادات الجهات التعليمية متاحة للإدارة العامة فقط.");
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
@@ -61,11 +61,11 @@ function renderCollegeSettings(){
  const type=$("entityTypeInput");if(type)type.value=entity.type||"college";loadActiveEntitySettings();
 }
 function applyCollegeBranding(){
- const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة",college=collegeSettings.active||DEFAULT_COLLEGE;
- const academyEl=$("academyHeaderName");if(academyEl)academyEl.textContent="بوابة "+college;
+ const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة";
+ const academyEl=$("academyHeaderName");if(academyEl)academyEl.textContent=platform;
  const el=$("collegeHeaderName");if(el){el.textContent="";el.parentElement.style.display="none";}
- const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=college;
- document.title=platform+" | "+college;
+ const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=platform;
+ document.title=platform;
  document.querySelectorAll(".brand-copy b,.sidebar-brand b").forEach(node=>node.textContent=platform.toUpperCase());
  document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");
  const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();
@@ -82,7 +82,7 @@ function closeCollegeSettings(){$("collegeSettingsModal").classList.add("hidden"
 function message(id,text,success=false){const el=$(id);if(!el)return;el.textContent=text;el.classList.toggle("success",success)}
 function setBusy(button,busy,label){button.disabled=busy;button.querySelector("span").textContent=busy?"جارٍ التنفيذ...":label}
 function showToast(text){const el=$("toast");el.textContent=text;el.classList.remove("hidden");clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>el.classList.add("hidden"),3500)}
-function selectRole(next){role=next;const student=next==="student";$("studentRole").classList.toggle("selected",student);$("adminRole").classList.toggle("selected",!student);$("studentRole").setAttribute("aria-selected",String(student));$("adminRole").setAttribute("aria-selected",String(!student));$("identityLabel").textContent=student?"كود الطالب":"اسم المستخدم الإداري";$("identity").placeholder=student?"أدخل كود الطالب":"أدخل اسم المستخدم";$("registerArea").classList.toggle("hidden",!student);$("authTitle").textContent=student?"مرحباً بعودتك":"بوابة إدارة الأكاديمية";$("authSubtitle").textContent=student?"اختر بوابتك وسجّل الدخول للمتابعة":"الدخول المخصص لمسؤولي الأكاديمية";message("loginMessage","")}
+function selectRole(next){role=next;const student=next==="student";$("studentRole").classList.toggle("selected",student);$("adminRole").classList.toggle("selected",!student);$("studentRole").setAttribute("aria-selected",String(student));$("adminRole").setAttribute("aria-selected",String(!student));$("identityLabel").textContent=student?"كود الطالب":"اسم المستخدم الإداري";$("identity").placeholder=student?"أدخل كود الطالب":"أدخل اسم المستخدم";$("registerArea").classList.toggle("hidden",!student);$("authTitle").textContent=student?"مرحباً بعودتك":"إدارة المنصة";$("authSubtitle").textContent=student?"اختر بوابتك وسجّل الدخول للمتابعة":"الدخول المخصص لمسؤولي المنصة";message("loginMessage","")}
 async function api(path,{method="GET",body=null,auth=true,params:extraParams={}}={}) {
  if(!cfg.API_BASE_URL) throw new Error("لم يتم إعداد رابط خدمة النظام بعد.");
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),cfg.REQUEST_TIMEOUT_MS||20000);
@@ -139,7 +139,7 @@ applyCollegeBranding();
 $("studentRole").addEventListener("click",()=>selectRole("student"));
 $("adminRole").addEventListener("click",()=>selectRole("admin"));
 $("togglePassword").addEventListener("click",()=>{$("password").type=$("password").type==="password"?"text":"password"});
-$("forgotButton").addEventListener("click",()=>showToast("يرجى التواصل مع إدارة الأكاديمية لإعادة تعيين كلمة المرور."));
+$("forgotButton").addEventListener("click",()=>showToast("يرجى التواصل مع إدارة المنصة لإعادة تعيين كلمة المرور."));
 $("loginForm").addEventListener("submit",async e=>{
  e.preventDefault();message("loginMessage","");
  const identity=$("identity").value.trim(),password=$("password").value;
@@ -156,21 +156,28 @@ $("loginForm").addEventListener("submit",async e=>{
  finally{setBusy(btn,false,"تسجيل الدخول")}
 });
 async function loadRegistrationEntities(){
- const select=$("regEntity"),typeSelect=$("regType");
+ const select=$("regEntity"),typeSelect=$("regType"),levelSelect=$("regCohort"),registerButton=$("registerButton");
+ select.dataset.entities="[]";
+ select.innerHTML='<option value="">جارٍ تحميل الجهات التعليمية...</option>';
+ levelSelect.innerHTML='<option value="">اختر الجهة أولاً</option>';
+ levelSelect.disabled=true;
+ registerButton.disabled=false;
  try{
   const data=await api("/api/public/education",{auth:false});
   const entities=Array.isArray(data.entities)?data.entities:[];
-  if(!entities.length)throw new Error("لم يتم إعداد أي جهة تعليمية بعد.");
+  if(!entities.length)throw new Error("الخادم لم يُرجع أي جهات تعليمية. راجع نشر نسخة Apps Script المحدثة.");
   select.dataset.entities=JSON.stringify(entities);
-  if(typeSelect&&!["college","center","other"].includes(typeSelect.value))typeSelect.value="college";
+  if(typeSelect&&![ "college","center","other"].includes(typeSelect.value))typeSelect.value="college";
   if(typeSelect&&!entities.some(x=>String(x.type||"college")===typeSelect.value))typeSelect.value=String(entities[0].type||"college");
   updateRegistrationEntities();
+  message("registerMessage","");
  }catch(err){
-  const fallback=[{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];
-  select.dataset.entities=JSON.stringify(fallback);
-  if(typeSelect)typeSelect.value="college";
-  updateRegistrationEntities();
-  message("registerMessage","تعذر تحميل الجهات من الخادم؛ تظهر كلية الإعلام كخيار احتياطي فقط. "+err.message);
+  select.dataset.entities="[]";
+  select.innerHTML='<option value="">تعذر تحميل الجهات</option>';
+  levelSelect.innerHTML='<option value="">التسجيل متوقف لحين الاتصال بالخادم</option>';
+  levelSelect.disabled=true;
+  registerButton.disabled=true;
+  message("registerMessage","تعذر تحميل الجهات من الخادم، لذلك أوقفنا التسجيل بدل عرض بيانات قديمة. "+err.message);
  }
 }
 function updateRegistrationEntities(){
@@ -180,7 +187,7 @@ function updateRegistrationEntities(){
  if(entities.length===1)select.value=entities[0].id;
  updateRegistrationLevels();
 }
-async function loadPublicBranding(entityId=""){try{const data=await api("/api/public/education",{auth:false,params:entityId?{entity_id:entityId}:{}});collegeSettings.academyName=data.academyName||collegeSettings.academyName;collegeSettings.platformName=data.platformName||collegeSettings.platformName;if(data.activeCollege&&!entityId)collegeSettings.active=data.activeCollege;collegeSettings.activeEntitySettings=data.entitySettings||{};if(entityId&&currentUser&&String(currentUser.entity_id)===String(entityId)&&currentUser.entity_name)collegeSettings.active=currentUser.entity_name;applyCollegeBranding();}catch(err){console.warn("Public branding unavailable",err.message)}}
+async function loadPublicBranding(entityId=""){try{const data=await api("/api/public/education",{auth:false,params:entityId?{entity_id:entityId}:{}});collegeSettings.platformName=data.platformName||collegeSettings.platformName;if(data.activeCollege&&!entityId)collegeSettings.active=data.activeCollege;collegeSettings.activeEntitySettings=data.entitySettings||{};if(entityId&&currentUser&&String(currentUser.entity_id)===String(entityId)&&currentUser.entity_name)collegeSettings.active=currentUser.entity_name;applyCollegeBranding();}catch(err){console.warn("Public branding unavailable",err.message)}}
 function updateRegistrationLevels(){
  const entities=JSON.parse($("regEntity").dataset.entities||"[]"),entity=entities.find(x=>x.id===$("regEntity").value),select=$("regCohort");
  const levels=entity&&Array.isArray(entity.levels)?entity.levels:[];
@@ -199,15 +206,15 @@ $("registerForm").addEventListener("submit",async e=>{
  const body={name:$("regName").value.trim(),phone:$("regPhone").value.trim(),email:$("regEmail").value.trim(),entity_id:$("regEntity").value,cohort:$("regCohort").value,password:$("regPassword").value};
  if(!body.name||!body.phone||!body.entity_id||!body.cohort||body.password.length<8){message("registerMessage","أكمل الاسم والهاتف والجهة والفرقة أو المستوى، وكلمة المرور لا تقل عن 8 أحرف.");return}
  const btn=$("registerButton");setBusy(btn,true,"إرسال طلب التسجيل");
- try{const result=await api("/auth/register",{method:"POST",auth:false,body});message("registerMessage",result.message||"تم إرسال طلبك إلى إدارة الأكاديمية للمراجعة.",true);$("registerForm").reset()}
+ try{const result=await api("/auth/register",{method:"POST",auth:false,body});message("registerMessage",result.message||"تم إرسال طلبك إلى إدارة المنصة للمراجعة.",true);$("registerForm").reset()}
  catch(err){message("registerMessage",err.message)}
  finally{setBusy(btn,false,"إرسال طلب التسجيل")}
 });
 function openWorkspace(){
  $("authPage").classList.add("hidden");$("appPage").classList.remove("hidden");
- $("workspaceLabel").textContent=isAdminUser()?"لوحة إدارة الأكاديمية":"مساحة الطالب";
+ $("workspaceLabel").textContent=isAdminUser()?"لوحة إدارة المنصة":"مساحة الطالب";
  $("welcomeName").textContent="مرحباً، "+(currentUser.name||currentUser.fullName||"بك");
- $("workspaceDescription").textContent=isAdminUser()?"إدارة الأكاديمية ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات الأكاديمية.";
+ $("workspaceDescription").textContent=isAdminUser()?"إدارة المنصة ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات المنصة.";
  $("sidebarRole").textContent=isAdminUser()?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";
  const collegeButton=$("openCollegeSettings");if(collegeButton)collegeButton.classList.toggle("hidden",!isAdminUser());
  
