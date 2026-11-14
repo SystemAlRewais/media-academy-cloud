@@ -72,7 +72,7 @@ function doGet(e) {
     const p = (e && e.parameter) || {};
     const path = String(p.path || "");
     if (!path) return out({success:true,message:"Media Academy Cloud API is active."});
-    if(path==="/api/public/education"){const settings=readRows_("Settings"),value=k=>((settings.find(x=>String(x.key)===k)||{}).value||"");const entityId=String(p.entity_id||"");return out({success:true,entities:educationEntities_(),entitySettings:entityId?publicEntitySettings_(entityId):{},platformName:value("platform_name")||"المنصة التعليمية المفتوحة",activeCollege:value("active_college")||((educationEntities_()[0]||{}).name)||"كلية الإعلام – جامعة الأزهر"});}
+    if(path==="/api/public/education"){const settings=readRows_("Settings"),value=k=>((settings.find(x=>String(x.key)===k)||{}).value||"");const entityId=String(p.entity_id||"");return out({success:true,apiVersion:"2026.11.15-centers-v2",entities:educationEntities_(),entitySettings:entityId?publicEntitySettings_(entityId):{},platformName:value("platform_name")||"المنصة التعليمية المفتوحة",activeCollege:value("active_college")||((educationEntities_()[0]||{}).name)||"كلية الإعلام – جامعة الأزهر"});}
     const m = path.match(/^\/api\/(admin|student)\/([a-zA-Z_]+)$/);
     if (!m) return out({success:false,message:"مسار غير معروف."});
     const role = m[1], section = m[2];
