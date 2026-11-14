@@ -28,6 +28,21 @@ function publicEntitySettings_(entityId){
     return {welcomeMessage:String(s.welcomeMessage||""),contactPhone:String(s.contactPhone||""),whatsapp:String(s.whatsapp||""),address:String(s.address||""),logoUrl:String(s.logoUrl||"")};
   }catch(e){return {};}
 }
+function isGlobalSettingKey_(key){
+  const k=String(key||"").trim();
+  return ["education_entities","college_list","active_college","platform_name","college_name","academy_name"].includes(k)||/^admin_/i.test(k);
+}
+function settingScope_(key,entityId){return isGlobalSettingKey_(key)?"":String(entityId||defaultEntityId_());}
+function migrateLegacySettingsScope_(){
+  const sh=db_().getSheetByName("Settings");if(!sh||sh.getLastRow()<2)return;
+  const values=sh.getDataRange().getValues(),headers=values[0].map(String),kc=headers.indexOf("key"),ec=headers.indexOf("entity_id");
+  if(kc<0||ec<0)return;
+  const fallback=defaultEntityId_();
+  for(let i=1;i<values.length;i++){
+    const key=String(values[i][kc]||"").trim(),scope=String(values[i][ec]||"");
+    if(key&&!scope&&!isGlobalSettingKey_(key))sh.getRange(i+1,ec+1).setValue(fallback);
+  }
+}
 function defaultEntityId_(){const list=educationEntities_();return list.length?String(list[0].id||"legacy-media"):"legacy-media";}
 function allCohortNames_(){return [...new Set(educationEntities_().flatMap(e=>(e.levels||[]).map(x=>String(x.name||"").trim())).filter(Boolean))];}
 function cohortNamesForEntity_(id){const e=educationEntities_().find(x=>String(x.id)===String(id));return e?(e.levels||[]).map(x=>String(x.name||"").trim()).filter(Boolean):[];}
@@ -45,7 +60,7 @@ const TABLES = {
   AttendanceSessions: ["session_id","entity_id","title","lecture_id","cohort","location_url","latitude","longitude","radius_meters","opens_at","closes_at","status","code_hash","code_salt","created_by","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
   Announcements: ["id","entity_id","title","body","target_cohort","status","publish_at","expire_at","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
   Complaints: ["id","entity_id","student_id","student_code","cohort","subject","message","reply","status","created_at","updated_at","attachment_url","attachment_type","attachment_name"],
-  Settings: ["key","value","updated_at"],
+  Settings: ["key","value","updated_at","entity_id"],
   AuditLog: ["id","actor","action","section","record_id","details","created_at"]
 };
 const PUBLIC_SECTIONS = ["courses","materials","lectures","schedule","exams","announcements"];
@@ -70,7 +85,7 @@ function doGet(e) {
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
     const requestedEntity=(user.role==="student"?String(user.entity_id||defaultEntityId_()):String(p.entity_id||user.entity_id||defaultEntityId_())).trim();
-    if(section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||defaultEntityId_())===requestedEntity);}
+    if(section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||defaultEntityId_())===requestedEntity);}else{rows=rows.filter(r=>!String(r.entity_id||"")||String(r.entity_id)===requestedEntity);}
     const requestedCohort = String(p.cohort || "").trim();
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
       if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
@@ -192,9 +207,9 @@ function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
   const sheetName = SECTION_SHEET[section];
   if (section === "settings") {
     const key=String(record.key||"").trim(); if(!key) throw new Error("اسم الإعداد مطلوب.");
-    const sh=db_().getSheetByName("Settings"), rows=readRows_("Settings");
-    if(rows.some(r=>String(r.key)===key)) throw new Error("اسم الإعداد موجود بالفعل.");
-    appendObject_("Settings",{key,value:String(record.value||""),updated_at:new Date().toISOString()});
+    const rows=readRows_("Settings"),scope=settingScope_(key,selectedEntityId);
+    if(rows.some(r=>String(r.key)===key&&String(r.entity_id||"")===scope)) throw new Error("اسم الإعداد موجود بالفعل داخل هذه الجهة.");
+    appendObject_("Settings",{key,value:String(record.value||""),updated_at:new Date().toISOString(),entity_id:scope});
     audit_(user,"create",section,key,record); return {message:"تمت إضافة الإعداد.",id:key};
   }
   const id = Utilities.getUuid();
@@ -229,11 +244,13 @@ function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
 function updateRecord_(section,id,record,user,selectedCohort,selectedEntityId) {
   if (!id) throw new Error("معرف السجل مطلوب.");
   if (section === "settings") {
-    const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key"),vc=h.indexOf("value"),uc=h.indexOf("updated_at");
-    const matching=[];for(let i=1;i<v.length;i++)if(String(v[i][kc])===String(id))matching.push(i);
-    if(!matching.length) throw new Error("الإعداد غير موجود.");
-    matching.forEach(row=>{if(vc>=0)sh.getRange(row+1,vc+1).setValue(record.value===undefined?"":record.value);if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());});
-    audit_(user,"update",section,id,record); return {message:"تم تحديث الإعداد."};
+    const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key"),vc=h.indexOf("value"),uc=h.indexOf("updated_at"),ec=h.indexOf("entity_id");
+    const scope=settingScope_(id,selectedEntityId);let row=-1;
+    for(let i=1;i<v.length;i++)if(String(v[i][kc])===String(id)&&String(ec<0?"":v[i][ec]||"")===scope){row=i;break;}
+    if(row<1)throw new Error("الإعداد غير موجود داخل هذه الجهة.");
+    if(vc>=0)sh.getRange(row+1,vc+1).setValue(record.value===undefined?"":record.value);
+    if(uc>=0)sh.getRange(row+1,uc+1).setValue(new Date().toISOString());
+    audit_(user,"update",section,id,{...record,entity_id:scope});return {message:"تم تحديث الإعداد."};
   }
   const sh=db_().getSheetByName(SECTION_SHEET[section]), values=sh.getDataRange().getValues(), headers=values[0].map(String);
   const idx=headers.indexOf(recordIdField_(section)), row=values.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
@@ -272,9 +289,10 @@ function updateRecord_(section,id,record,user,selectedCohort,selectedEntityId) {
 function deleteRecord_(section,id,user,selectedCohort,selectedEntityId) {
   if (!id) throw new Error("معرف السجل مطلوب.");
   if (section === "settings") {
-    const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key");
-    const row=v.findIndex((r,i)=>i>0&&String(r[kc])===String(id)); if(row<1) throw new Error("الإعداد غير موجود.");
-    sh.deleteRow(row+1); audit_(user,"delete",section,id,{}); return {message:"تم حذف الإعداد."};
+    const sh=db_().getSheetByName("Settings"),v=sh.getDataRange().getValues(),h=v[0].map(String),kc=h.indexOf("key"),ec=h.indexOf("entity_id"),scope=settingScope_(id,selectedEntityId);
+    const row=v.findIndex((r,i)=>i>0&&String(r[kc])===String(id)&&String(ec<0?"":r[ec]||"")===scope);
+    if(row<1)throw new Error("الإعداد غير موجود داخل هذه الجهة.");
+    sh.deleteRow(row+1);audit_(user,"delete",section,id,{entity_id:scope});return {message:"تم حذف الإعداد."};
   }
   const sh=db_().getSheetByName(SECTION_SHEET[section]),v=sh.getDataRange().getValues(),headers=v[0].map(String),idx=headers.indexOf(recordIdField_(section));
   const row=v.findIndex((r,i)=>i>0 && String(r[idx])===String(id));
@@ -425,6 +443,7 @@ function ensureDatabaseSafe_(){
     if(sh.getLastRow()===0) sh.getRange(1,1,1,TABLES[name].length).setValues([TABLES[name]]);
     else ensureHeadersSafe_(sh,TABLES[name]);
   });
+  migrateLegacySettingsScope_();
   const props=PropertiesService.getScriptProperties();
   const username=String(props.getProperty("ADMIN_USERNAME")||"").trim();
   const password=String(props.getProperty("ADMIN_PASSWORD")||"");
