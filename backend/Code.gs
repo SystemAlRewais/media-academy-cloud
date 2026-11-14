@@ -191,6 +191,7 @@ function createRecord_(section,record,user,selectedCohort,selectedEntityId) {
   if (cohortKey && selectedCohort === "__unassigned__") throw new Error("لا يمكن إنشاء سجل جديد داخل قائمة الطلاب غير المسندين.");
   if (cohortKey && selectedCohort) obj[cohortKey] = selectedCohort;
   if (section === "students") {
+    obj.entity_name=(educationEntities_().find(x=>String(x.id)===String(selectedEntityId))||{}).name||"";
     if (!obj.full_name) throw new Error("اسم الطالب مطلوب.");
     if (!cohortNamesForEntity_(selectedEntityId).includes(String(obj.cohort||""))) throw new Error("اختر الفرقة الدراسية للطالب.");
     if (!obj.password || String(obj.password).length<8) throw new Error("حدد كلمة مرور للطالب لا تقل عن 8 أحرف.");
