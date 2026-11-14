@@ -56,11 +56,11 @@ function doGet(e) {
     if (!user) return out({success:false,message:"انتهت الجلسة أو بيانات الدخول غير صالحة."});
     if (role === "admin" && !isOwner_(user)) return out({success:false,message:"الدخول متاح لحساب الإدارة العامة فقط."});
     if (role === "student" && user.role !== "student" && user.role !== "admin" && user.role !== "owner") return out({success:false,message:"غير مصرح."});
-    if (section === "home") return out(homeData_(user, String(p.cohort || ""),String(p.entity_id||user.entity_id||defaultEntityId_())));
+    if (section === "home") { const homeEntityId=user.role==="student"?String(user.entity_id||defaultEntityId_()):String(p.entity_id||user.entity_id||defaultEntityId_()); return out(homeData_(user,String(p.cohort||""),homeEntityId)); }
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
-    const requestedEntity=String(p.entity_id||user.entity_id||defaultEntityId_()).trim();
+    const requestedEntity=(user.role==="student"?String(user.entity_id||defaultEntityId_()):String(p.entity_id||user.entity_id||defaultEntityId_())).trim();
     if(section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||defaultEntityId_())===requestedEntity);}
     const requestedCohort = String(p.cohort || "").trim();
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
