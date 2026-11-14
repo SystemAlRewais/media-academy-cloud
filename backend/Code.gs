@@ -297,7 +297,7 @@ function checkIn_(data,user) {
     const attendanceDate=Utilities.formatDate(checkedAt, APP_TIME_ZONE, "yyyy-MM-dd");
     if(attendance.some(x=>String(x.attendance_date)===attendanceDate && String(x.student_id)===String(user.id))) return out({success:false,message:"تم تسجيل حضورك بالفعل اليوم. لا يمكن تكرار الحضور في اليوم نفسه."});
     iso=checkedAt.toISOString();id=Utilities.getUuid();
-    appendObject_("Attendance",{id,attendance_id:id,session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:attendanceDate,check_in:Utilities.formatDate(checkedAt, APP_TIME_ZONE, "HH:mm:ss"),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
+    appendObject_("Attendance",{id,attendance_id:id,entity_id:user.entity_id||defaultEntityId_(),session_id:sessionId,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,lecture_id:session.lecture_id||"",attendance_date:attendanceDate,check_in:Utilities.formatDate(checkedAt, APP_TIME_ZONE, "HH:mm:ss"),checked_at:iso,status:"present",latitude,longitude,distance_meters:Math.round(distance),notes:"",created_at:iso});
   } finally { lock.releaseLock(); }
   audit_(user,"checkin","attendance",id,{session_id:sessionId,distance_meters:Math.round(distance)});
   return out({success:true,message:"تم تسجيل حضورك بنجاح.",distance_meters:Math.round(distance)});
@@ -355,7 +355,7 @@ function submitComplaint_(data,user) {
   if(!subject || !message) return out({success:false,message:"اكتب موضوع الشكوى وتفاصيلها."});
   if(!user.cohort) return out({success:false,message:"لا توجد فرقة مرتبطة بحسابك. تواصل مع الإدارة."});
   const id=Utilities.getUuid(), now=new Date().toISOString();
-  appendObject_("Complaints",{id,student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,subject,message,reply:"",status:"new",created_at:now,updated_at:now});
+  appendObject_("Complaints",{id,entity_id:user.entity_id||defaultEntityId_(),student_id:user.id,student_code:user.studentCode||user.username,cohort:user.cohort,subject,message,reply:"",status:"new",created_at:now,updated_at:now});
   audit_(user,"create","complaints",id,{subject});
   return out({success:true,message:"تم إرسال الشكوى إلى الإدارة.",id});
 }
