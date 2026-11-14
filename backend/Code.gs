@@ -19,6 +19,15 @@ function educationEntities_(){
   }
   return [{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_COHORTS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];
 }
+function publicEntitySettings_(entityId){
+  const row=readRows_("Settings").find(x=>String(x.key)==="education_entities");
+  if(!row||!row.value)return {};
+  try{
+    const entities=JSON.parse(row.value),entity=Array.isArray(entities)?entities.find(x=>String(x.id)===String(entityId)) : null;
+    const s=entity&&entity.settings&&typeof entity.settings==="object"?entity.settings:{};
+    return {welcomeMessage:String(s.welcomeMessage||""),contactPhone:String(s.contactPhone||""),whatsapp:String(s.whatsapp||""),address:String(s.address||""),logoUrl:String(s.logoUrl||"")};
+  }catch(e){return {};}
+}
 function defaultEntityId_(){const list=educationEntities_();return list.length?String(list[0].id||"legacy-media"):"legacy-media";}
 function allCohortNames_(){return [...new Set(educationEntities_().flatMap(e=>(e.levels||[]).map(x=>String(x.name||"").trim())).filter(Boolean))];}
 function cohortNamesForEntity_(id){const e=educationEntities_().find(x=>String(x.id)===String(id));return e?(e.levels||[]).map(x=>String(x.name||"").trim()).filter(Boolean):[];}
@@ -48,7 +57,7 @@ function doGet(e) {
     const p = (e && e.parameter) || {};
     const path = String(p.path || "");
     if (!path) return out({success:true,message:"Media Academy Cloud API is active."});
-    if(path==="/api/public/education"){const settings=readRows_("Settings"),value=k=>((settings.find(x=>String(x.key)===k)||{}).value||"");return out({success:true,entities:educationEntities_(),platformName:value("platform_name")||"المنصة التعليمية المفتوحة",academyName:value("academy_name")||"بوابة الأكاديمية الرسمية",activeCollege:value("active_college")||((educationEntities_()[0]||{}).name)||"كلية الإعلام – جامعة الأزهر"});}
+    if(path==="/api/public/education"){const settings=readRows_("Settings"),value=k=>((settings.find(x=>String(x.key)===k)||{}).value||"");const entityId=String(p.entity_id||"");return out({success:true,entities:educationEntities_(),entitySettings:entityId?publicEntitySettings_(entityId):{},platformName:value("platform_name")||"المنصة التعليمية المفتوحة",academyName:value("academy_name")||"بوابة الأكاديمية الرسمية",activeCollege:value("active_college")||((educationEntities_()[0]||{}).name)||"كلية الإعلام – جامعة الأزهر"});}
     const m = path.match(/^\/api\/(admin|student)\/([a-zA-Z_]+)$/);
     if (!m) return out({success:false,message:"مسار غير معروف."});
     const role = m[1], section = m[2];
