@@ -148,6 +148,7 @@ async function loadRegistrationEntities(){
   if(!entities.length)throw new Error("لم يتم إعداد أي جهة تعليمية بعد.");
   select.dataset.entities=JSON.stringify(entities);
   if(typeSelect&&!["college","center","other"].includes(typeSelect.value))typeSelect.value="college";
+  if(typeSelect&&!entities.some(x=>String(x.type||"college")===typeSelect.value))typeSelect.value=String(entities[0].type||"college");
   updateRegistrationEntities();
  }catch(err){
   const fallback=[{id:"legacy-media",name:"كلية الإعلام – جامعة الأزهر",type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"legacy-"+(i+1),name}))}];
