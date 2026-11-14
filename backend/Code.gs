@@ -46,7 +46,7 @@ function doGet(e) {
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
     const requestedEntity=String(p.entity_id||(user.role==="student"?user.entity_id:"")||"").trim();
-    if(requestedEntity){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||"legacy-media")===requestedEntity);}
+    if(requestedEntity&&section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||"legacy-media")===requestedEntity);}
     const requestedCohort = String(p.cohort || "").trim();
     if (isOwner_(user) && requestedCohort && requestedCohort !== "__all__") {
       if (requestedCohort === "__unassigned__" && section === "students") rows = rows.filter(r => !String(r.cohort || "").trim());
@@ -382,7 +382,7 @@ function authenticate_(token) {
 }
 function safeUser_(u) {
   const owner = u.role === "owner" || u.is_owner === true;
-  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:owner?"admin":(u.role || "student"),is_owner:owner,entity_id:u.entity_id||"",entity_name:u.entity_name||"",cohort:u.cohort || "",department:u.department || ""};
+  return {id:u.id, user_id:u.id, username:u.username || u.student_code || "",studentCode:u.student_code || "",name:u.full_name || "",fullName:u.full_name || "",email:u.email || "",phone:u.phone || "",role:owner?"admin":(u.role || "student"),is_owner:owner,entity_id:u.entity_id||"legacy-media",entity_name:u.entity_name||"كلية الإعلام – جامعة الأزهر",cohort:u.cohort || "",department:u.department || ""};
 }
 function isOwner_(u){ return !!u && (u.role === "owner" || u.is_owner === true); }
 
