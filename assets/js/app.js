@@ -30,8 +30,8 @@ async function loadCollegeSettings(){
  if(!entities.length)entities=[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"level-"+i,name}))}];
  collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
  if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=entities[0].name;
- COHORTS=[...new Set(entities.flatMap(x=>(x.levels||[]).map(l=>l.name)))];
  const entityControl=$("entitySelector");if(entityControl){entityControl.innerHTML=entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");if(!entities.some(x=>x.id===selectedEntityId))selectedEntityId=entities[0].id;entityControl.value=selectedEntityId;}
+ COHORTS=(entities.find(x=>x.id===selectedEntityId)||entities[0]).levels.map(x=>x.name);
  const cohortControl=$("cohortSelector");if(cohortControl){cohortControl.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");if(selectedCohort!=="__all__"&&selectedCohort!=="__unassigned__"&&!COHORTS.includes(selectedCohort))selectedCohort="__all__";cohortControl.value=selectedCohort;}
  renderCollegeSettings();applyCollegeBranding();
  const p=$("platformNameInput"),c=$("collegeNameInput");if(p)p.value=collegeSettings.platformName;if(c)c.value=collegeSettings.active;
@@ -154,12 +154,12 @@ function openWorkspace(){
  $("workspaceDescription").textContent=isAdminUser()?"إدارة الأكاديمية ومتابعة جميع الخدمات.":"تابع رحلتك التعليمية وخدمات الأكاديمية.";
  $("sidebarRole").textContent=isAdminUser()?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";
  const collegeButton=$("openCollegeSettings");if(collegeButton)collegeButton.classList.toggle("hidden",!isAdminUser());
- if(isAdminUser())loadCollegeSettings().catch(()=>{});
+ 
  const entityControl=$("entitySelector");if(entityControl)entityControl.classList.toggle("hidden",!isAdminUser());
  const cohortControl=$("cohortSelector");
  if(cohortControl){cohortControl.classList.toggle("hidden",!isAdminUser());cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
- renderNav();loadSection("home");
+ renderNav();if(isAdminUser())loadCollegeSettings().then(()=>loadSection("home")).catch(()=>loadSection("home"));else loadSection("home");
 }
 function renderNav(){
  const nav=isAdminUser()?adminNav:studentNav;
