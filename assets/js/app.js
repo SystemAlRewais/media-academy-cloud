@@ -23,7 +23,7 @@ async function loadCollegeSettings(){
  if(!Array.isArray(colleges)||!colleges.length)colleges=[DEFAULT_COLLEGE];
  colleges=colleges.filter(x=>typeof x==="string"&&x.trim());
  if(!colleges.length)colleges=[DEFAULT_COLLEGE];
- collegeSettings={colleges,active:values.college_name|| (colleges.includes(values.active_college)?values.active_college:colleges[0]),platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
+ collegeSettings={colleges,active:(colleges.includes(values.active_college)?values.active_college:(values.college_name||colleges[0])),platformName:values.platform_name||"المنصة التعليمية المفتوحة"};
  if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.colleges.unshift(collegeSettings.active);
  renderCollegeSettings();applyCollegeBranding();
  const platformInput=$("platformNameInput"),collegeInput=$("collegeNameInput");if(platformInput)platformInput.value=collegeSettings.platformName;if(collegeInput)collegeInput.value=collegeSettings.active;
