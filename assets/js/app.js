@@ -51,6 +51,32 @@ async function saveCollegeSettings(){
 }
 const LEGACY_LEVELS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 function activeEntity(){return collegeSettings.entities.find(x=>x.name===collegeSettings.active)||collegeSettings.entities[0];}
+function refreshAdminCohortOptions(){
+ const entity=collegeSettings.entities.find(x=>String(x.id)===String(selectedEntityId))||collegeSettings.entities[0];
+ COHORTS=(entity&&Array.isArray(entity.levels)?entity.levels:[]).map(x=>x.name);
+ const control=$("cohortSelector");
+ if(control){
+  control.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");
+  if(selectedCohort!=="__all__"&&selectedCohort!=="__unassigned__"&&!COHORTS.includes(selectedCohort))selectedCohort="__all__";
+  control.value=selectedCohort;
+ }
+}
+const adminEntitySelector=$("entitySelector");
+if(adminEntitySelector)adminEntitySelector.addEventListener("change",()=>{
+ selectedEntityId=adminEntitySelector.value;
+ sessionStorage.setItem("ma_admin_entity",selectedEntityId);
+ selectedCohort="__all__";
+ sessionStorage.setItem("ma_admin_cohort",selectedCohort);
+ refreshAdminCohortOptions();
+ loadSection(activeSection);
+});
+const adminCohortSelector=$("cohortSelector");
+if(adminCohortSelector)adminCohortSelector.addEventListener("change",()=>{
+ selectedCohort=adminCohortSelector.value||"__all__";
+ sessionStorage.setItem("ma_admin_cohort",selectedCohort);
+ loadSection(activeSection);
+});
+
 function loadActiveEntitySettings(){const s=activeEntity()?.settings||{};const fields={entityWelcomeMessage:"welcomeMessage",entityContactPhone:"contactPhone",entityWhatsapp:"whatsapp",entityAddress:"address",entityLogoUrl:"logoUrl"};for(const [id,key] of Object.entries(fields)){const el=$(id);if(el)el.value=s[key]||"";}}
 function renderCollegeSettings(){
  const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;
