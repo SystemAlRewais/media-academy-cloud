@@ -26,7 +26,7 @@ async function loadCollegeSettings(){
   if(!Array.isArray(names)||!names.length)names=[values.college_name||DEFAULT_COLLEGE];
   entities=names.map((name,i)=>({id:"entity-"+i,name,type:"college",levels:LEGACY_LEVELS.slice()}));
  }
- entities=entities.filter(x=>x&&x.name).map((x,i)=>({id:String(x.id||("entity-"+i)),name:String(x.name),type:x.type||"college",levels:Array.isArray(x.levels)?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+j)),name:String(v.name)})):[]}));
+ entities=entities.filter(x=>x&&x.name).map((x,i)=>({id:String(x.id||("entity-"+i)),name:String(x.name),type:x.type||"college",levels:Array.isArray(x.levels)?x.levels.filter(v=>v&&v.name).map((v,j)=>({id:String(v.id||("level-"+j)),name:String(v.name)})):[],settings:x.settings&&typeof x.settings==="object"?x.settings:{}}));
  if(!entities.length)entities=[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"level-"+i,name}))}];
  collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة",academyName:""};
  if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=entities[0].name;
@@ -51,13 +51,14 @@ async function saveCollegeSettings(){
 }
 const LEGACY_LEVELS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 function activeEntity(){return collegeSettings.entities.find(x=>x.name===collegeSettings.active)||collegeSettings.entities[0];}
+function loadActiveEntitySettings(){const s=activeEntity()?.settings||{};const fields={entityWelcomeMessage:"welcomeMessage",entityContactPhone:"contactPhone",entityWhatsapp:"whatsapp",entityAddress:"address",entityLogoUrl:"logoUrl"};for(const [id,key] of Object.entries(fields)){const el=$(id);if(el)el.value=s[key]||"";}}
 function renderCollegeSettings(){
  const select=$("activeCollegeSelect"),list=$("collegeList");if(!select||!list)return;
  select.innerHTML=collegeSettings.entities.map(x=>'<option value="'+escapeHtml(x.name)+'">'+escapeHtml(x.name)+'</option>').join("");select.value=collegeSettings.active;
  const entity=activeEntity();
  const levels=(entity.levels||[]).map(l=>'<div class="college-list-item"><span>'+escapeHtml(l.name)+'</span><button type="button" data-remove-level="'+escapeHtml(l.id)+'">حذف المستوى</button></div>').join("");
  list.innerHTML='<div class="college-list-item"><b>'+escapeHtml(entity.name)+'</b><small>'+((entity.levels||[]).length)+' مستويات</small></div>'+levels+collegeSettings.entities.map(x=>x.name===entity.name?"":'<div class="college-list-item"><span>'+escapeHtml(x.name)+'</span><button type="button" data-remove-entity="'+escapeHtml(x.id)+'">حذف الجهة</button></div>').join("");
- const type=$("entityTypeInput");if(type)type.value=entity.type||"college";
+ const type=$("entityTypeInput");if(type)type.value=entity.type||"college";loadActiveEntitySettings();
 }
 function applyCollegeBranding(){const platform=collegeSettings.platformName||"المنصة التعليمية المفتوحة";const college=collegeSettings.active||DEFAULT_COLLEGE;const academyEl=$("academyHeaderName");if(academyEl)academyEl.textContent="بوابة "+college;const el=$("collegeHeaderName");if(el){el.textContent="";el.parentElement.style.display="none";}const footerCollege=$("footerCollegeName");if(footerCollege)footerCollege.textContent=college;document.title=platform+" | "+college;document.querySelectorAll(".brand-copy b,.sidebar-brand b").forEach(node=>node.textContent=platform.toUpperCase());document.querySelectorAll(".brand-copy small").forEach(node=>node.textContent="OPEN EDUCATION PLATFORM");const footerMeta=document.querySelector(".footer-meta span");if(footerMeta)footerMeta.textContent="© "+platform.toUpperCase();const authHeading=$("authTitle");if(authHeading&&authHeading.textContent.includes("الأكاديمية"))authHeading.textContent=authHeading.textContent.replaceAll("الأكاديمية",platform);}
 
@@ -110,6 +111,13 @@ $("saveBrandButton").addEventListener("click",async()=>{collegeSettings.platform
 
 $("saveCollegeNameButton").addEventListener("click",async()=>{const name=$("collegeNameInput").value.trim();if(!name){$("collegeSettingsNote").textContent="اكتب اسم الجهة أولاً.";return}const entity=activeEntity();entity.name=name;collegeSettings.active=name;await saveCollegeSettings()});
 $("addCollegeButton").addEventListener("click",async()=>{const name=$("newCollegeName").value.trim(),type=$("entityTypeInput").value;if(!name){$("collegeSettingsNote").textContent="اكتب اسم الجهة أولاً.";return}if(collegeSettings.entities.some(x=>x.name.toLowerCase()===name.toLowerCase())){$("collegeSettingsNote").textContent="الجهة مضافة بالفعل.";return}collegeSettings.entities.push({id:"entity-"+Date.now(),name,type,levels:[]});collegeSettings.active=name;$("newCollegeName").value="";await saveCollegeSettings()});
+$("saveEntitySettingsButton").addEventListener("click",async()=>{
+ const entity=activeEntity();if(!entity)return;
+ entity.settings=entity.settings||{};
+ const fields={entityWelcomeMessage:"welcomeMessage",entityContactPhone:"contactPhone",entityWhatsapp:"whatsapp",entityAddress:"address",entityLogoUrl:"logoUrl"};
+ for(const [id,key] of Object.entries(fields)){const el=$(id);entity.settings[key]=el?el.value.trim():"";}
+ await saveCollegeSettings();
+});
 $("addLevelButton").addEventListener("click",async()=>{const name=$("newLevelName").value.trim(),entity=activeEntity();if(!name||!entity)return;if(entity.levels.some(x=>x.name.toLowerCase()===name.toLowerCase())){$("collegeSettingsNote").textContent="المستوى موجود بالفعل.";return}entity.levels.push({id:"level-"+Date.now(),name});$("newLevelName").value="";await saveCollegeSettings()});
 $("collegeList").addEventListener("click",async e=>{const level=e.target.closest("[data-remove-level]"),entityBtn=e.target.closest("[data-remove-entity]");if(level){const entity=activeEntity();entity.levels=entity.levels.filter(x=>x.id!==level.dataset.removeLevel);await saveCollegeSettings()}else if(entityBtn){if(collegeSettings.entities.length===1){$("collegeSettingsNote").textContent="لا يمكن حذف آخر جهة.";return}collegeSettings.entities=collegeSettings.entities.filter(x=>x.id!==entityBtn.dataset.removeEntity);collegeSettings.active=collegeSettings.entities[0].name;await saveCollegeSettings()}});
 applyCollegeBranding();
