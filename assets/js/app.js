@@ -251,7 +251,10 @@ function renderSection(section,data){
  }
 }
 async function mutateRecord(section,action,id,record){
- const data={action,section,record};if(id)data.id=id;
+ const payload={...(record||{})};
+ // Settings are keyed by their setting name; the backend reads record.key on create.
+ if(section==="settings"&&action==="create"&&id)payload.key=id;
+ const data={action,section,record:payload};if(id)data.id=id;
  return api("/api/admin/"+section,{method:"POST",body:data});
 }
 async function saveRecord(e){
