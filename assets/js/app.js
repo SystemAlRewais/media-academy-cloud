@@ -261,7 +261,7 @@ function fieldDefs(section){
  complaints:[["teacher_id","المدرس","select",teacherOptions()],["subject","موضوع الشكوى"],["message","نص الشكوى","textarea"],["reply","رد الإدارة","textarea"],["status","الحالة","select",["new","in_progress","resolved","archived"]]],
  settings:[["key","اسم الإعداد"],["value","القيمة","textarea"]]
  };
- return (defs[section]||[]).map(x=>({name:x[0],label:x[1],type:x[2]||"text",options:x[0]==="cohort"&&section==="students"?COHORTS:(x[3]||[])}));
+ return (defs[section]||[]).map(x=>({name:x[0],label:x[1],type:x[2]||"text",options:(x[0]==="cohort"&&section==="students")||(x[0]==="target_cohort"&&section==="announcements")?COHORTS:(x[3]||[])}));
 }
 function teacherOptions(){const entity=collegeSettings.entities.find(x=>String(x.id)===String(selectedEntityId));return (entity?.teachers||[]).map(t=>({value:t.id,label:t.name}));}
 function bindStudentAttendanceForm(){
@@ -359,7 +359,7 @@ async function saveRecord(e){
  fieldDefs(section).forEach(f=>{const el=form.elements[f.name];if(el&&el.value!==""&&!(f.name==="password"&&!el.value))record[f.name]=el.value});
  if(section==="attendance_sessions"){if(record.opens_at)record.opens_at=new Date(record.opens_at).toISOString();if(record.closes_at)record.closes_at=new Date(record.closes_at).toISOString();}
  if(["students","courses","materials","lectures","exams","results","attendance","attendance_sessions","complaints"].includes(section)&&selectedCohort!=="__unassigned__"&&selectedCohort!=="__all__")record.cohort=selectedCohort;
- if(section==="announcements")record.target_cohort=selectedCohort;
+ if(section==="announcements"&&selectedCohort!=="__all__"&&selectedCohort!=="__unassigned__")record.target_cohort=selectedCohort;
   if(section!=="students"&&selectedTeacherId!=="__all__"&&!record.teacher_id)record.teacher_id=selectedTeacherId;
  const msg=$("editorMessage");msg.textContent="جارٍ الحفظ...";
  try{
