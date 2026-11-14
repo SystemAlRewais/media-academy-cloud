@@ -199,11 +199,11 @@ function generateStudentCode_() {
 function register_(d) {
   const name=String(d.name||"").trim(), password=String(d.password||""), phone=String(d.phone||"").trim();
   const email=String(d.email||"").trim(), cohort=String(d.cohort||"").trim(), entityId=String(d.entity_id||"").trim();
-  const entity=educationEntities_().find(x=>String(x.id)===entityId), level=entity&&(entity.levels||[]).find(x=>String(x.name)===cohort);
-  if(!name||!phone||!entity||!level||password.length<8) return out({success:false,message:"اختر الجهة التعليمية والفرقة أو المستوى الصحيح، وأكمل بياناتك."});
+  const entity=educationEntities_().find(x=>String(x.id)===entityId), level=entity&&(entity.levels||[]).find(x=>String(x.name)===cohort),teacherId=String(d.teacher_id||"").trim(),teacher=entity&&(entity.teachers||[]).find(t=>String(t.id)===teacherId);
+  if(!name||!phone||!entity||!level||!teacher||password.length<8) return out({success:false,message:"اختر الجهة والمدرس والمستوى الصحيح، وأكمل بياناتك."});
   if(email && readRows_("Students").some(r=>String(r.email||"").toLowerCase()===email.toLowerCase())) return out({success:false,message:"البريد الإلكتروني مسجل بالفعل."});
   const code=generateStudentCode_(), salt=Utilities.getUuid(), now=new Date().toISOString();
-  appendObject_("Students",{id:Utilities.getUuid(),student_code:code,username:code,full_name:name,email,phone,password_hash:hash_(password,salt),password_salt:salt,role:"student",entity_id:entity.id,entity_name:entity.name,cohort,department:"",status:"pending",created_at:now,updated_at:now});
+  appendObject_("Students",{id:Utilities.getUuid(),student_code:code,username:code,full_name:name,email,phone,password_hash:hash_(password,salt),password_salt:salt,role:"student",entity_id:entity.id,entity_name:entity.name,teacher_id:teacher.id,teacher_name:teacher.name,cohort,department:"",status:"pending",created_at:now,updated_at:now});
   return out({success:true,message:"تم إرسال طلبك للمراجعة. كود الطالب الخاص بك: "+code,studentCode:code});
 }
 
