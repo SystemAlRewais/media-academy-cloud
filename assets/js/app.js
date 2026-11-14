@@ -155,6 +155,7 @@ function openWorkspace(){
  $("sidebarRole").textContent=isAdminUser()?"OWNER / ADMIN PORTAL":"STUDENT PORTAL";
  const collegeButton=$("openCollegeSettings");if(collegeButton)collegeButton.classList.toggle("hidden",!isAdminUser());
  if(isAdminUser())loadCollegeSettings().catch(()=>{});
+ const entityControl=$("entitySelector");if(entityControl)entityControl.classList.toggle("hidden",!isAdminUser());
  const cohortControl=$("cohortSelector");
  if(cohortControl){cohortControl.classList.toggle("hidden",!isAdminUser());cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
