@@ -114,9 +114,10 @@ async function api(path,{method="GET",body=null,auth=true,params:extraParams={}}
   if(method==="GET"){
    const params=new URLSearchParams({path,...extraParams});
    if(auth&&token) params.set("token",token);
-   if(auth&&currentUser&&isAdminUser()&&selectedCohort) params.set("cohort",selectedCohort);
-   if(auth&&currentUser&&isAdminUser()&&selectedEntityId) params.set("entity_id",selectedEntityId);
-   if(auth&&currentUser&&isAdminUser()&&selectedTeacherId) params.set("teacher_id",selectedTeacherId);
+   const isSettingsBootstrap=path==="/api/admin/settings";
+   if(auth&&currentUser&&isAdminUser()&&!isSettingsBootstrap&&selectedCohort) params.set("cohort",selectedCohort);
+   if(auth&&currentUser&&isAdminUser()&&!isSettingsBootstrap&&selectedEntityId) params.set("entity_id",selectedEntityId);
+   if(auth&&currentUser&&isAdminUser()&&!isSettingsBootstrap&&selectedTeacherId) params.set("teacher_id",selectedTeacherId);
    response=await fetch(url+"?"+params.toString(),{method:"GET",headers:{Accept:"application/json"},signal:controller.signal});
   }else{
    const payload=body?{...body}:{};
