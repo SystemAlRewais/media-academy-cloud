@@ -23,3 +23,19 @@
 
 /* Compact responsive workspace */
 .app-page{max-width:1120px;padding:26px 20px 42px}.workspace{grid-template-columns:210px minmax(0,1fr);gap:12px}.sidebar{padding:12px}.workspace-content{padding:17px}.app-heading h1{font-size:26px}.data-table{font-size:10px}.data-table th,.data-table td{padding:9px 10px}@media(max-width:700px){.app-page{padding:18px 10px 30px}.workspace{grid-template-columns:minmax(0,1fr);gap:9px}.sidebar{padding:8px;border-radius:12px}#sideNav{gap:3px}#sideNav button{padding:8px 10px;font-size:10px}.workspace-content{padding:12px;border-radius:12px}.app-heading{margin-bottom:15px}.app-heading h1{font-size:21px}.app-heading p{font-size:10px}.content-top{padding-bottom:10px;margin-bottom:13px}.dashboard-stat{padding:12px;min-height:78px}.dashboard-stat strong{font-size:20px}.dashboard-stats{grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}.record-editor{padding:11px}.data-table{font-size:9px}.data-table th,.data-table td{padding:7px 8px}}
+
+
+/* Dashboard hierarchy and stable responsive layout */
+.dashboard-title{font-size:21px;font-weight:900;letter-spacing:-.2px;margin:2px 0 16px;color:#f1f6fa}
+.dashboard-scope{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px 14px;margin:0 0 18px;padding:15px 17px;border:1px solid #55d6ce30;border-inline-start:3px solid var(--teal);border-radius:12px;background:linear-gradient(115deg,#142b40,#101f34)}
+.dashboard-scope>b{grid-row:span 2;color:#dce9f3;font-size:12px;white-space:nowrap}
+.dashboard-scope p{margin:0;color:#68d4cb;font-size:12px;font-weight:800;line-height:1.8}
+.dashboard-scope small{color:#91a5ba;font-size:10px;line-height:1.7}
+.dashboard-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.dashboard-stat{min-width:0;min-height:96px;padding:15px 16px;border-radius:12px;background:linear-gradient(145deg,#14263d,#101e31);box-shadow:0 5px 16px #050d1a22}
+.dashboard-stat small{font-size:11px;line-height:1.65}
+.dashboard-stat strong{font-size:27px;line-height:1.2;margin-top:9px}
+#workspaceView{min-width:0}
+@media(max-width:900px){.dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.dashboard-title{font-size:18px}.dashboard-scope{grid-template-columns:1fr;gap:5px;padding:12px}.dashboard-scope>b{grid-row:auto}.dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dashboard-stat{min-height:82px;padding:11px}.dashboard-stat small{font-size:10px}.dashboard-stat strong{font-size:22px}}
+@media(max-width:360px){.dashboard-stats{grid-template-columns:1fr}}
