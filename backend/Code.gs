@@ -452,7 +452,7 @@ function homeData_(u, selectedCohort, selectedEntityId, selectedTeacherId) {
   const entity=entities.find(x=>String(x.id)===String(selectedEntityId))||{};
   const totalTeachers=(entity.teachers||[]).length;
   const totalLevels=(entity.levels||[]).length;
-  return {success:true,stats:{"إجمالي الطلاب":students.length,"الطلاب النشطون":students.filter(x=>x.status==="active").length,"طلبات التسجيل":students.filter(x=>x.status==="pending").length,"المدرسون":teacherScope&&teacherScope!=="__all__"?1:totalTeachers,"المستويات":totalLevels,"المواد":courses.length,"الكتب والملفات":materials.length,"المحاضرات":lectures.length,"الامتحانات":exams.length,"الإعلانات":announcements.length},message:"تعرض لوحة التحكم بيانات "+String(entity.name||"الجهة المحددة")+" وفق فلاتر السنتر والمدرس والمستوى."};
+  return {success:true,stats:{"إجمالي الطلاب":students.length,"الطلاب النشطون":students.filter(x=>x.status==="active").length,"طلبات التسجيل":students.filter(x=>x.status==="pending").length,"السناتر التعليمية":entities.filter(x=>String(x.type)==="center").length,"إجمالي الجهات":entities.length,"مدرسو الجهة":teacherScope&&teacherScope!=="__all__"?1:totalTeachers,"مستويات الجهة":totalLevels,"المواد":courses.length,"الكتب والملفات":materials.length,"المحاضرات":lectures.length,"الامتحانات":exams.length,"الإعلانات":announcements.length},message:"تعرض لوحة التحكم بيانات "+String(entity.name||"الجهة المحددة")+" وفق فلاتر السنتر والمدرس والمستوى."};
 }
 function authenticate_(token) {
   if(!token) return null;
