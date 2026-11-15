@@ -246,7 +246,13 @@ function renderNav(){
 }
 async function loadSection(section){
  activeSection=section;renderNav();$("sectionEyebrow").textContent=sectionNames[section]||"ACADEMY";$("workspaceView").innerHTML='<div class="loading-state">جارٍ تحميل البيانات...</div>';
- if(isAdminUser()&&(section==="centers"||section==="add_student")){try{await loadCollegeSettings();if(section==="centers")renderCentersWorkspace();else renderStudentCreateWorkspace();}catch(err){$("workspaceView").innerHTML='<div class="empty-state">'+escapeHtml(err.message)+'</div>';}return;}
+ if(isAdminUser()){
+  try{
+   await loadCollegeSettings();
+   if(section==="centers"){renderCentersWorkspace();return;}
+   if(section==="add_student"){renderStudentCreateWorkspace();return;}
+  }catch(err){$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل إعدادات الجهات</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>';return;}
+ }
  try{
   const data=await api("/api/"+(isAdminUser()?"admin":"student")+"/"+section);
   renderSection(section,data);
