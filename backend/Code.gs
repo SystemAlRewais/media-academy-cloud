@@ -84,7 +84,11 @@ function doGet(e) {
     if (section === "profile") return out({success:true,profile:safeUser_(user)});
     if (role === "student" && !PUBLIC_SECTIONS.includes(section) && section !== "attendance" && section !== "complaints" && section !== "results") return out({success:false,message:"غير مصرح."});
     let rows = readRows_(SECTION_SHEET[section]);
-    const requestedEntity=(user.role==="student"?String(user.entity_id||defaultEntityId_()):String(p.entity_id||user.entity_id||defaultEntityId_())).trim();
+    // Settings bootstrap for the global owner must not depend on a stale entity ID
+    // stored in the admin session; use the current first configured entity instead.
+    const requestedEntity=(section==="settings"&&isOwner_(user))
+      ? String(defaultEntityId_())
+      : (user.role==="student"?String(user.entity_id||defaultEntityId_()):String(p.entity_id||user.entity_id||defaultEntityId_())).trim();
     if(section!=="settings"){if(!educationEntities_().some(x=>String(x.id)===requestedEntity))return out({success:false,message:"الجهة التعليمية المحددة غير معروفة."});rows=rows.filter(r=>String(r.entity_id||defaultEntityId_())===requestedEntity);}else{rows=rows.filter(r=>!String(r.entity_id||"")||String(r.entity_id)===requestedEntity);}
     const requestedTeacher=String(p.teacher_id||"").trim();
      if(requestedTeacher&&requestedTeacher!=="__all__")rows=rows.filter(r=>String(r.teacher_id||"")===requestedTeacher);
