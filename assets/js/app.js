@@ -4,9 +4,10 @@ const cfg = window.MEDIA_ACADEMY_CONFIG || {API_BASE_URL:"",REQUEST_TIMEOUT_MS:1
 const $ = id => document.getElementById(id);
 const isAdminUser = () => !!currentUser && (currentUser.role === "admin" || currentUser.role === "owner");
 let role = "student", token = null, currentUser = null, activeSection = "home";
+let sectionLoadSequence = 0, collegeSettingsLoaded = false;
 let COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 let selectedCohort=sessionStorage.getItem("ma_admin_cohort")||"__all__";
-let selectedEntityId=sessionStorage.getItem("ma_admin_entity")||"legacy-media";
+let selectedEntityId=sessionStorage.getItem("ma_admin_entity")||"";
 let selectedTeacherId=sessionStorage.getItem("ma_admin_teacher")||"__all__";
 const studentNav = [
  ["home","الرئيسية","⌂"],["profile","ملفي الشخصي","◉"],["courses","المواد الدراسية","▤"],["materials","الكتب والملفات","▧"],["lectures","المحاضرات","▶"],["schedule","جدول المحاضرات","▦"],["exams","الامتحانات","✧"],["results","النتائج","◈"],["attendance","الحضور","◷"],["announcements","الإعلانات","◇"],["complaints","الشكاوى والمقترحات","✉"]
@@ -17,8 +18,9 @@ const adminNav = [
 const sectionNames = {home:"OVERVIEW",profile:"MY PROFILE",students:"STUDENTS",add_student:"ADD STUDENT",centers:"CENTERS & TEACHERS",courses:"COURSES",materials:"MATERIALS",lectures:"LECTURES",schedule:"SCHEDULE",exams:"EXAMS & RESULTS",attendance:"ATTENDANCE",attendance_sessions:"ATTENDANCE SESSIONS",announcements:"ANNOUNCEMENTS",complaints:"MESSAGES",settings:"SYSTEM SETTINGS"};
 const DEFAULT_COLLEGE = "كلية الإعلام – جامعة الأزهر";
 let collegeSettings={colleges:[DEFAULT_COLLEGE],entities:[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:[]}],active:DEFAULT_COLLEGE,platformName:"المنصة التعليمية المفتوحة",};
-async function loadCollegeSettings(){
+async function loadCollegeSettings(force=false){
  if(!currentUser||!isAdminUser())throw new Error("إعدادات الجهات التعليمية متاحة للإدارة العامة فقط.");
+ if(collegeSettingsLoaded&&!force)return;
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
  const values=Object.fromEntries(rows.map(x=>[String(x.key),String(x.value||"")]));
  let entities=[];try{entities=JSON.parse(values.education_entities||"[]")}catch{}
@@ -31,12 +33,19 @@ async function loadCollegeSettings(){
  if(!entities.length)entities=[{id:"entity-default",name:DEFAULT_COLLEGE,type:"college",levels:LEGACY_LEVELS.map((name,i)=>({id:"level-"+i,name}))}];
  collegeSettings={colleges:entities.map(x=>x.name),entities,active:values.active_college||entities[0].name,platformName:values.platform_name||"المنصة التعليمية المفتوحة",};
  if(!collegeSettings.colleges.includes(collegeSettings.active))collegeSettings.active=entities[0].name;
- const entityControl=$("entitySelector");if(entityControl){entityControl.innerHTML=entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");if(!entities.some(x=>x.id===selectedEntityId))selectedEntityId=entities[0].id;entityControl.value=selectedEntityId;}
+ const activeEntityId=(entities.find(x=>x.name===collegeSettings.active)||entities[0]).id;
+ const storedEntityId=sessionStorage.getItem("ma_admin_entity")||"";
+ const storedEntityExists=entities.some(x=>x.id===storedEntityId);
+ if(!storedEntityExists || !storedEntityId || (storedEntityId==="legacy-media" && activeEntityId!=="legacy-media")) selectedEntityId=activeEntityId;
+ else selectedEntityId=storedEntityId;
+ const entityControl=$("entitySelector");if(entityControl){entityControl.innerHTML=entities.map(x=>'<option value="'+escapeHtml(x.id)+'">'+escapeHtml(x.name)+'</option>').join("");entityControl.value=selectedEntityId;}
+ sessionStorage.setItem("ma_admin_entity",selectedEntityId);
  COHORTS=(entities.find(x=>x.id===selectedEntityId)||entities[0]).levels.map(x=>x.name);
  const teacherControl=$("teacherSelector"),currentEntity=entities.find(x=>x.id===selectedEntityId)||entities[0];if(teacherControl){teacherControl.innerHTML='<option value="__all__">كل المدرسين</option>'+(currentEntity.teachers||[]).map(t=>'<option value="'+escapeHtml(t.id)+'">'+escapeHtml(t.name)+'</option>').join("");if(!(currentEntity.teachers||[]).some(t=>t.id===selectedTeacherId))selectedTeacherId="__all__";teacherControl.value=selectedTeacherId;}
  const cohortControl=$("cohortSelector");if(cohortControl){cohortControl.innerHTML='<option value="__all__">كل الفرق والمستويات</option><option value="__unassigned__">طلبات بدون فرقة</option>'+COHORTS.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join("");if(selectedCohort!=="__all__"&&selectedCohort!=="__unassigned__"&&!COHORTS.includes(selectedCohort))selectedCohort="__all__";cohortControl.value=selectedCohort;}
  renderCollegeSettings();applyCollegeBranding();
  const p=$("platformNameInput"),c=$("collegeNameInput");if(p)p.value=collegeSettings.platformName;if(c)c.value=collegeSettings.active;
+ collegeSettingsLoaded=true;
 }
 async function persistCollegeSettings(){
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
@@ -80,7 +89,7 @@ function applyCollegeBranding(){
  document.querySelectorAll(".brand-mark").forEach(mark=>{mark.style.backgroundImage=safeLogo?'url("'+safeLogo.replace(/["\\]/g,"")+'")':"";mark.style.backgroundSize="cover";mark.style.backgroundPosition="center";if(safeLogo)mark.textContent="";else mark.textContent="MA";});
 }
 
-async function openCollegeSettings(){try{await loadCollegeSettings();$("collegeSettingsModal").classList.remove("hidden")}catch(err){showToast(err.message)}}
+async function openCollegeSettings(){try{await loadCollegeSettings(true);$("collegeSettingsModal").classList.remove("hidden")}catch(err){showToast(err.message)}}
 function closeCollegeSettings(){$("collegeSettingsModal").classList.add("hidden")}
 function message(id,text,success=false){const el=$(id);if(!el)return;el.textContent=text;el.classList.toggle("success",success)}
 function setBusy(button,busy,label){button.disabled=busy;button.querySelector("span").textContent=busy?"جارٍ التنفيذ...":label}
@@ -237,7 +246,7 @@ function openWorkspace(){
  const cohortControl=$("cohortSelector");
  if(cohortControl){cohortControl.classList.toggle("hidden",!isAdminUser());cohortControl.value=selectedCohort;}
  $("userChip").textContent=currentUser.studentCode||currentUser.username||currentUser.email||"حساب معتمد";
- renderNav();if(isAdminUser())loadCollegeSettings().then(()=>loadSection("home")).catch(()=>loadSection("home"));else{loadPublicBranding(currentUser.entity_id||"");loadSection("home");}
+ renderNav();if(isAdminUser())loadSection("home");else{loadPublicBranding(currentUser.entity_id||"");loadSection("home");}
 }
 function renderNav(){
  const nav=isAdminUser()?adminNav:studentNav;
@@ -245,18 +254,21 @@ function renderNav(){
  $("sideNav").querySelectorAll("button").forEach(button=>button.addEventListener("click",()=>loadSection(button.dataset.section)));
 }
 async function loadSection(section){
- activeSection=section;renderNav();$("sectionEyebrow").textContent=sectionNames[section]||"ACADEMY";$("workspaceView").innerHTML='<div class="loading-state">جارٍ تحميل البيانات...</div>';
+ const requestId=++sectionLoadSequence;
+ activeSection=section;renderNav();$("sectionEyebrow").textContent=sectionNames[section]||"OVERVIEW";$("workspaceView").innerHTML='<div class="loading-state">جارٍ تحميل البيانات...</div>';
  if(isAdminUser()){
   try{
    await loadCollegeSettings();
+   if(requestId!==sectionLoadSequence||activeSection!==section)return;
    if(section==="centers"){renderCentersWorkspace();return;}
    if(section==="add_student"){renderStudentCreateWorkspace();return;}
-  }catch(err){$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل إعدادات الجهات</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>';return;}
+  }catch(err){if(requestId!==sectionLoadSequence)return;$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل إعدادات الجهات</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>';return;}
  }
  try{
   const data=await api("/api/"+(isAdminUser()?"admin":"student")+"/"+section);
+  if(requestId!==sectionLoadSequence||activeSection!==section)return;
   renderSection(section,data);
- }catch(err){$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل القسم</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>'}
+ }catch(err){if(requestId!==sectionLoadSequence||activeSection!==section)return;$("workspaceView").innerHTML='<div class="empty-state"><div class="empty-symbol">◈</div><b>تعذر تحميل القسم</b><p class="section-note">'+escapeHtml(err.message)+'</p></div>'}
 }
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function toLocalDateTime(value){const d=new Date(value);if(Number.isNaN(d.getTime()))return value||"";const pad=n=>String(n).padStart(2,"0");return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());}
@@ -343,7 +355,7 @@ function renderStudentCreateWorkspace(){
  form.addEventListener("submit",async e=>{e.preventDefault();const msg=$("dedicatedStudentMessage"),button=form.querySelector('button[type="submit"]');const entityId=form.elements.entity_id.value,selected=entities.find(x=>x.id===entityId),teacher=(selected?.teachers||[]).find(t=>t.id===form.elements.teacher_id.value),cohort=form.elements.cohort.value;if(!selected){msg.textContent="اختر جهة تعليمية صحيحة.";return;}if(!teacher){msg.textContent="اختر مدرساً تابعاً للجهة المحددة.";return;}if(!(selected.levels||[]).some(l=>l.name===cohort)){msg.textContent="اختر مستوى تابعاً للجهة المحددة.";return;}const record={full_name:form.elements.full_name.value.trim(),phone:form.elements.phone.value.trim(),email:form.elements.email.value.trim(),entity_id:entityId,entity_name:selected.name,entity_type:selected.type,teacher_id:teacher.id,teacher_name:teacher.name,cohort,password:form.elements.password.value,status:form.elements.status.value};selectedEntityId=entityId;selectedCohort=cohort;selectedTeacherId=teacher.id;sessionStorage.setItem("ma_admin_entity",selectedEntityId);sessionStorage.setItem("ma_admin_cohort",selectedCohort);sessionStorage.setItem("ma_admin_teacher",selectedTeacherId);button.disabled=true;msg.textContent="جارٍ حفظ الطالب في قاعدة البيانات السحابية...";try{const saved=await api("/api/admin/students",{method:"POST",body:{action:"create",section:"students",entity_id:entityId,teacher_id:teacher.id,cohort,record}});msg.textContent="تم إنشاء حساب الطالب بنجاح."+(saved.studentCode?" كود الطالب: "+saved.studentCode:"");showToast("تمت إضافة الطالب.");form.reset();form.elements.entity_id.value=entityId;form.elements.entity_id.dispatchEvent(new Event("change"));}catch(err){msg.textContent="تعذر حفظ الطالب: "+err.message;}finally{button.disabled=!(selected.teachers||[]).length||!(selected.levels||[]).length;}});
 }
 function renderSection(section,data){
- const title=({home:"نظرة عامة",profile:"ملفي الشخصي",students:"إدارة الطلاب",courses:"المواد الدراسية",materials:"الكتب والملفات",lectures:"المحاضرات والجداول",schedule:"الجدول الدراسي",exams:"الامتحانات",results:"النتائج",attendance:"الحضور",attendance_sessions:"جلسات الحضور",announcements:"الإعلانات",complaints:"الشكاوى والمقترحات",settings:"إعدادات النظام"})[section]||"الأكاديمية";
+ const title=({home:"لوحة التحكم",profile:"ملفي الشخصي",students:"قائمة الطلاب",courses:"المواد الدراسية",materials:"الكتب والملفات",lectures:"المحاضرات والجداول",schedule:"الجدول الدراسي",exams:"الامتحانات",results:"النتائج",attendance:"الحضور",attendance_sessions:"جلسات الحضور",announcements:"الإعلانات",complaints:"الشكاوى والمقترحات",settings:"إعدادات النظام"})[section]||"المنصة التعليمية المفتوحة";
  if(section==="home"){
   const entries=Object.entries(data.stats||{});
   const entity=collegeSettings.entities.find(x=>String(x.id)===String(selectedEntityId))||{};
