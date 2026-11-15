@@ -4,7 +4,7 @@ const cfg = window.MEDIA_ACADEMY_CONFIG || {API_BASE_URL:"",REQUEST_TIMEOUT_MS:1
 const $ = id => document.getElementById(id);
 const isAdminUser = () => !!currentUser && (currentUser.role === "admin" || currentUser.role === "owner");
 let role = "student", token = null, currentUser = null, activeSection = "home";
-let sectionLoadSequence = 0, collegeSettingsLoaded = false;
+let sectionLoadSequence = 0, collegeSettingsLoaded = false, collegeSettingsLoadPromise = null;
 let COHORTS=["الفرقة الأولى","الفرقة الثانية","الفرقة الثالثة","الفرقة الرابعة"];
 let selectedCohort=sessionStorage.getItem("ma_admin_cohort")||"__all__";
 let selectedEntityId=sessionStorage.getItem("ma_admin_entity")||"";
@@ -21,6 +21,8 @@ let collegeSettings={colleges:[DEFAULT_COLLEGE],entities:[{id:"entity-default",n
 async function loadCollegeSettings(force=false){
  if(!currentUser||!isAdminUser())throw new Error("إعدادات الجهات التعليمية متاحة للإدارة العامة فقط.");
  if(collegeSettingsLoaded&&!force)return;
+ if(collegeSettingsLoadPromise&&!force)return collegeSettingsLoadPromise;
+ const loadTask=(async()=>{
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
  const values=Object.fromEntries(rows.map(x=>[String(x.key),String(x.value||"")]));
  let entities=[];try{entities=JSON.parse(values.education_entities||"[]")}catch{}
@@ -49,6 +51,9 @@ async function loadCollegeSettings(force=false){
  renderCollegeSettings();applyCollegeBranding();
  const p=$("platformNameInput"),c=$("collegeNameInput");if(p)p.value=collegeSettings.platformName;if(c)c.value=collegeSettings.active;
  collegeSettingsLoaded=true;
+ })();
+ collegeSettingsLoadPromise=loadTask;
+ try{return await loadTask;}finally{if(collegeSettingsLoadPromise===loadTask)collegeSettingsLoadPromise=null;}
 }
 async function persistCollegeSettings(){
  const data=await api("/api/admin/settings"),rows=Array.isArray(data.items)?data.items:[];
